@@ -1,8 +1,13 @@
 {
   "name": "@suitegeezus/eslint-sdf-xml-parser",
   "version": "6.8.3-beta0.1",
+  "keywords": ["suitescript" ,"sdf", "netsuite" ,"xml" ,"parser", "vistor" ,"ast", "eslint"],
   "description": "Parser for ESLint that parses SDF XML object files into AST structures",
-  "repository": "https://github.com/gillyspy/eslint-sdf-xml-parser",
+  "repository": "https://github.com/gillyspy/eslint-sdf-xml-parser.git",
+  "bugs" : {
+    "url": "https://github.com/gillyspy/eslint-sdf-xml-parser/issues"
+  },
+  "homepage": "https://github.com/gillyspy/eslint-sdf-xml-parser#readme",
   "license": "MIT",
   "author": {
     "name": "Gerald Gillespie",
