@@ -9,33 +9,31 @@ import {
     XmlText,
     XmlComment,
     ESLintXmlParseResult,
-    XmlSyntaxTree
+    XmlSyntaxTree,
+    ParserOptions
 } from '../types';
 
 // const startsWithHtmlTag: RegExp = /^\s*</;
-interface indices {
-    startIndex : number;
-    endIndex : number;
-}
+
 
 /**
  * @description
- * @param {indices} options
- * @param {number} options.startIndex
- * @param {number} options.endIndex
+ * @param {Pick<Parser, 'startIndex'|'endIndex'>} indices
+ * @param {number} indices.startIndex
+ * @param {number} indices.endIndex
  * @returns {[number,number]}
  */
-const rangePlus1  = ({ startIndex , endIndex }) : [number,number] => [startIndex, endIndex+1];
+const rangePlus1  = ({ startIndex , endIndex } :  Pick<Parser,'startIndex'|'endIndex'>) : [number,number] => [startIndex, endIndex+1];
 
 /**
  * @description slices the code string properly
  * @param {object} options Options object
  * @param {string} options.code
- * @param {number} options.startIndex,
+ * @param {number} options.startIndex
  * @param {number} options.endIndex
  * @returns {string}
  */
-const slicedCodePlus1 = ({code, startIndex,endIndex}) : string =>code.slice(...rangePlus1({startIndex,endIndex}));
+const slicedCodePlus1 = ({code, startIndex, endIndex} : { code : string , startIndex : number, endIndex : number}) : string =>code.slice(...rangePlus1({startIndex,endIndex}));
 
 
 
@@ -48,7 +46,7 @@ const contentsOfTagRgx = /^(?:<(?<tagname>[^ >]+))(?:[^\/>]*\/[>]$|[^\/>]*[>](?<
  */
 const extractInner = ({raw}) : string|null => raw.match(contentsOfTagRgx)?.groups?.content || null;
 
-export const parseForESLint = (code: string, parserOptions :object={}): ESLintXmlParseResult => {
+export const parseForESLint = (code: string, parserOptions :Partial<ParserOptions>): ESLintXmlParseResult => {
 
     let lineBreakIndices: number[] = [-1];
     let currentIndex = code.indexOf('\n');
@@ -232,7 +230,7 @@ export const parseForESLint = (code: string, parserOptions :object={}): ESLintXm
 
     }
 
-    const defaultOptions : object = {
+    const defaultOptions : ParserOptions = {
         xmlMode : false,
         decodeEntities : true,
         lowerCaseTags: false,

@@ -9,6 +9,14 @@ export type XmlTokenType =
     | 'XmlComment'
     | 'Program'
 
+export interface ParserOptions {
+        xmlMode? : boolean;
+        decodeEntities? : boolean;
+        lowerCaseTags?: boolean;
+        lowerCaseAttributeNames?: boolean;
+        recognizeSelfClosing?: boolean;
+}
+
 export interface ESLintXmlParserToken {
     type: XmlTokenType | AST.TokenType;
     raw: string;
