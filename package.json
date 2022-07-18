@@ -1,6 +1,6 @@
 {
   "name": "@suitegeezus/eslint-sdf-xml-parser",
-  "version": "6.8.2",
+  "version": "6.8.3-beta0.1",
   "description": "Parser for ESLint that parses SDF XML object files into AST structures",
   "repository": "https://github.com/gillyspy/eslint-sdf-xml-parser",
   "license": "MIT",
