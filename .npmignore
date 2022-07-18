@@ -13,3 +13,6 @@ readmes
 .customJsdocTags.json
 .eslintrc.js
 jest.config.js
+
+.idea
+.empty

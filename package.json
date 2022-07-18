@@ -12,7 +12,17 @@
   "contributors": [
     "Medicomp <support@medicomp.com>"
   ],
+  "directories": {
+    "src": "dist",
+    "types": "types"
+  },
+  "files": [
+    "index.js",
+    "dist",
+    "types"
+  ],
   "scripts": {
+    "test": "echo \"exit 0\"",
     "build": "tsc",
     "build:watch": "npm run build -- --watch"
   },
