@@ -1,4 +1,4 @@
-const {parse,parseForESLint} = require('./dist/index');
+const xports = require('./dist/index');
 
-
-module.exports = { parse,parseForESLint} ;
+// babel export strategy for dual purposes;
+module.exports = { ...xports , default : {...xports } };
