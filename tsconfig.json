@@ -1,14 +1,23 @@
 {
   "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
     "module": "commonjs",
-    "target": "es2015",
+    "target": "esnext",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "lib": ["es2015"],
+    "strict": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "sourceMap": true,
     "typeRoots": [
       "node_modules/@types"
     ]
   },
+  "include" : [ "src"],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist"
   ]
 }

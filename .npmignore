@@ -1,4 +1,12 @@
-.vscode/**/*
-node_modules/**/*
-!*.js
-!*.js.map
+tests
+.env
+docs.config.json
+code
+templates
+.npmignore
+fixtures
+readmes
+.gitignore
+.customJsdocTags.json
+.eslintrc.js
+jest.config.js

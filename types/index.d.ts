@@ -2,86 +2,65 @@
 import { Statement, ModuleDeclaration } from 'estree';
 import { ScopeManager } from 'eslint-scope';
 
-export type HTMLTokenType = 
-    | 'HTMLAttributeName'
-    | 'HTMLAttributeValue'
-    | 'HTMLAttribute'
-    | 'HTMLText'
-    | 'HTMLWhitespace'
-    | 'HTMLElement'
-    | 'HTMLComment'
-    | 'HTMLProcessingInstruction'
+export type XmlTokenType =
+    | 'XmlAttribute'
+    | 'XmlText'
+    | 'XmlElement'
+    | 'XmlComment'
     | 'Program'
 
-export interface ESLintHTMLParserToken {
-    type: HTMLTokenType | AST.TokenType;
+export interface ESLintXmlParserToken {
+    type: XmlTokenType | AST.TokenType;
+    raw: string;
     value: string;
     range: AST.Range;
     loc: AST.SourceLocation;
 }
 
-export interface HTMLAttributeName extends ESLintHTMLParserToken {
-    type: 'HTMLAttributeName';
-    parent: HTMLAttribute;
+export interface XmlAttribute extends ESLintXmlParserToken {
+    type: 'XmlAttribute';
+    parent: XmlElement;
+    attribName : string;
+    attribValue: string;
 }
 
-export interface HTMLAttributeValue extends ESLintHTMLParserToken {
-    type: 'HTMLAttributeValue';
-    parent: HTMLAttribute;
+export interface XmlText extends ESLintXmlParserToken {
+    type: 'XmlText';
+    parent: XmlElement;
+    text : string;
 }
 
-export interface HTMLAttribute extends ESLintHTMLParserToken {
-    type: 'HTMLAttribute';
-    parent: HTMLElement;
-    attributeName: HTMLAttributeName;
-    attributeValue: HTMLAttributeValue;
+
+export interface XmlComment extends ESLintXmlParserToken {
+    type: 'XmlComment';
+    parent: XmlElement;
+    comment: string;
 }
 
-export interface HTMLText extends ESLintHTMLParserToken {
-    type: 'HTMLText';
-    parent: HTMLElement;
-}
 
-export interface HTMLWhitespace extends ESLintHTMLParserToken {
-    type: 'HTMLWhitespace';
-    parent: HTMLElement;
-}
-
-export interface HTMLComment extends ESLintHTMLParserToken {
-    type: 'HTMLComment';
-    parent: HTMLElement;
-    text: string;
-}
-
-export interface HTMLProcessingInstruction extends ESLintHTMLParserToken {
-    type: 'HTMLProcessingInstruction';
-    target: string;
-    data: string;
-}
-
-export interface HTMLElement extends ESLintHTMLParserToken {
+export interface XmlElement extends ESLintXmlParserToken {
     comments: string[];
-    type: 'HTMLElement';
+    type: 'XmlElement';
     tagName: string;
-    parent?: HTMLElement;
-    attributes: HTMLAttribute[];
-    children: (HTMLElement | HTMLText | HTMLWhitespace | HTMLComment | Statement | ModuleDeclaration)[];
+    parent?: XmlElement;
+    attributes: XmlAttribute[];
+    children: (XmlElement | XmlText | XmlComment | Statement | ModuleDeclaration)[];
 }
 
-export interface HTMLSyntaxTree extends ESLintHTMLParserToken {
+export interface XmlSyntaxTree extends ESLintXmlParserToken {
     comments: any[];
-    tokens: ESLintHTMLParserToken[];
-    root: HTMLElement;
+    tokens: ESLintXmlParserToken[];
+    root: XmlElement;
     type: 'Program'
 }
 
-export interface ESLintHtmlParseResult {
-    ast: HTMLSyntaxTree | AST.Program;
+export interface ESLintXmlParseResult {
+    ast: XmlSyntaxTree | AST.Program;
     services?: Object;
     scopeManager?: ScopeManager;
     visitorKeys?: SourceCode.VisitorKeys;
 }
 
-export function parseForESLint(code: string, options?: any): ESLintHtmlParseResult;
+export function parseForESLint(code: string, options?: any): ESLintXmlParseResult;
 
-export function parse(code: string, options: any): HTMLSyntaxTree | AST.Program;
+export function parse(code: string, options: any): XmlSyntaxTree | AST.Program;

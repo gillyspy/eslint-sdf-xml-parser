@@ -1,28 +1,33 @@
 {
-  "name": "eslint-html-parser",
+  "name": "@suitegeezus/eslint-sdf-xml-parser",
   "version": "6.8.2",
-  "description": "Parser for ESLint that parses HTML files into AST structures and falls back to an ECMAScript parser for .js files",
-  "repository": "https://github.com/medicomp/eslint-html-parser",
+  "description": "Parser for ESLint that parses SDF XML object files into AST structures",
+  "repository": "https://github.com/gillyspy/eslint-sdf-xml-parser",
   "license": "MIT",
   "author": {
-    "name": "Medicomp Systems",
-    "email": "support@medicomp.com"
+    "name": "Gerald Gillespie",
+    "email": "gg@suitegeezus.com"
   },
+  "main": "index.js",
+  "contributors": [
+    "Medicomp <support@medicomp.com>"
+  ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "build:watch": "npm run build -- --watch"
   },
   "dependencies": {
-    "eslint": "^6.8.0",
-    "espree": "^6.1.2",
-    "htmlparser2": "^4.1.0"
+    "eslint": "latest",
+    "htmlparser2": "latest"
   },
   "devDependencies": {
-    "@types/eslint": "^6.1.8",
-    "@types/estree": "^0.0.42",
-    "@types/htmlparser2": "^3.7.31",
-    "@types/node": "^12.12.6",
-    "@types/eslint-scope": "3.7.0",
-    "typescript": "^3.8.3"
+    "@types/eslint": "latest",
+    "@types/eslint-scope": "latest",
+    "@types/estree": "latest",
+    "@types/htmlparser2": "latest",
+    "@types/node": "latest",
+    "domhandler": "^5.0.3",
+    "typescript": "^4.7.4"
   },
   "types": "types/index.d.ts"
 }
