@@ -20,6 +20,11 @@ tramp
 # Optional npm cache directory
 .npm
 
+# exclude
+dist/*
+
+# but include this empty file so the dir gets created
+!dist/.empty
 fixtures/docs
 fixtures/wiki
 .husky/!pre-commit
