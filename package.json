@@ -21,10 +21,11 @@
     "htmlparser2": "latest"
   },
   "devDependencies": {
+    "@types/domhandler": "^2.4.2",
     "@types/eslint": "latest",
     "@types/eslint-scope": "latest",
     "@types/estree": "latest",
-    "@types/htmlparser2": "latest",
+    "@types/htmlparser2": "^3.10.3",
     "@types/node": "latest",
     "domhandler": "^5.0.3",
     "typescript": "^4.7.4"
