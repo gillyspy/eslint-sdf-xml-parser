@@ -4,6 +4,9 @@ docs.config.json
 code
 templates
 .npmignore
+# source
+tsconfig.json
+src
 fixtures
 readmes
 .gitignore
