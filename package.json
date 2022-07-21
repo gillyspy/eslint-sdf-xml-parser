@@ -23,6 +23,7 @@
     "email": "gg@suitegeezus.com"
   },
   "main": "index.js",
+  "module": "index.js",
   "contributors": [
     "Medicomp <support@medicomp.com>"
   ],
@@ -47,13 +48,17 @@
     "htmlparser2": "latest"
   },
   "devDependencies": {
+    "@suitegeezus/eslint-config": "^0.1.0-beta0.3",
     "@types/domhandler": "^2.4.2",
     "@types/eslint": "latest",
     "@types/eslint-scope": "latest",
     "@types/estree": "latest",
     "@types/htmlparser2": "^3.10.3",
+    "@types/jest": "^28.1.6",
     "@types/node": "latest",
     "domhandler": "^5.0.3",
+    "jest": "^28.1.3",
+    "ts-jest": "^28.0.7",
     "typescript": "^4.7.4"
   },
   "types": "types/index.d.ts"

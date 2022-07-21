@@ -44,13 +44,22 @@ of the other flags.
     "parser": "eslint-sdf-xml-parser",
     "parserOptions": {
         "xmlMode" : false,
-        "decodeEntities" : true,
+        "decodeEntities" : false,
         "lowerCaseTags": false,
         "lowerCaseAttributeNames": false,
         "recognizeSelfClosing": true
     }
 }
 ```
+
+| option                  | value | description                                                                          |
+|:------------------------|:-----:|:-------------------------------------------------------------------------------------|
+| xmlMode                 |  ??   | not sure... stand by                                                                 |
+| decodeEntities          | false | SDF will already decode them and double-decoding is a problem                        |
+| lowerCaseTags           | false | e.g. `entryForm` -- do not get me started                                            |
+| lowerCaseAttributeNames | false | no need                                                                              |
+| recognizeSelfClosing    | true  | Tags like `label` will often appear as `<label/>` when it could be `<label></label>` |
+
 
 ## Usage for custom rules/plugins
 
