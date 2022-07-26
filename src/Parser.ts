@@ -1,28 +1,3 @@
-/**
- * @description Would like to support as many as these EsLintRule.RuleContext methods as possible. To do that the
- * nodes need to have a clear definition of a nodes's range, their text contents and other AST.Token properties
- * - insertTextAfter(nodeOrToken, text) - inserts text after the given node or token
- * - insertTextAfterRange(range, text) - inserts text after the given range
- * - insertTextBefore(nodeOrToken, text) - inserts text before the given node or token
- * - insertTextBeforeRange(range, text) - inserts text before the given range
- * - remove(nodeOrToken) - removes the given node or token
- * - removeRange(range) - removes text in the given range
- * - replaceText(nodeOrToken, text) - replaces the text in the given node or token
- * - replaceTextRange(range, text) - replaces the text in the given range.
- *
- * ## insertTextAfter
- * - equivalent of creating a sibling element.
- * - if what you want is to append then you want to insert before the first child.
- * - if what you want is to prepend then you want to insert after the last child.
- * - if the tag is closed then you will have to.
- *
- * ## remove
- * - equivalent of removing the element.
- * - if what you want is rather to remove the contents then remove all the children.
- *
- * ## replaceText.
- */
-
 import { SourceCode } from 'eslint';
 import { Handler } from 'htmlparser2/lib/Parser';
 // eslint-disable-next-line prettier/prettier
@@ -30,8 +5,6 @@ import {
   Parser, ParserOptions, Tokenizer
 }                     from 'htmlparser2';
 import { Callbacks } from 'htmlparser2/lib/Tokenizer';
-// eslint-disable-next-line prettier/prettier
-import {name} from "ts-jest/dist/transformers/hoist-jest";
 import {
   Attr,
   AttrName,
@@ -43,7 +16,7 @@ import {
   XmlPosition,
   XmlSourceLocation,
   XmlTokenType,
-  SdfComment as Comment
+  XmlComment as Comment
 } from '../types';
 
 export default class SdfParser {
@@ -101,8 +74,10 @@ export default class SdfParser {
       'Attr': ['attrName', 'attrValue'],
       'AttrName': [],
       'AttrVal': [],
-      'Tag': ['children', 'attr'],
+      'Tag': ['children', 'attr', 'comments'],
       'Text': [],
+      'Line': [],
+      'Block': [],
       'Comment': []
     };
 
@@ -468,7 +443,7 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext: (text: string): void => {
-        console.log('ontext', { text });
+        // console.log('ontext', { text });
 
         const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlText' });
 
@@ -604,7 +579,7 @@ export default class SdfParser {
         removeIt: false
       }).map(({ range: [a, b] }) => ({ start: a, end: b }));
     } catch (e) {
-      console.log({ e });
+      // console.log({ e });
     }
     return [];
   };
@@ -921,7 +896,7 @@ export default class SdfParser {
           // any need to add it to temporary?
           // currentSdfParser.#tokens.push(newText);
 
-          console.log('ontext', currentSdfParser.code);
+          // console.log('ontext', currentSdfParser.code);
           return parserPrototypes.ontext(start, end);
         });
       },
@@ -1050,7 +1025,8 @@ export default class SdfParser {
     lowerCaseTags: false,
     lowerCaseAttributeNames: false,
     recognizeSelfClosing: true,
-    tab: '  '
+    tab: '  ',
+    commentNodes: false
     // Tokenizer              : makeTokenizer(tokens)
   };
 

@@ -78,7 +78,7 @@ export interface XmlSourceLocation extends AST.SourceLocation {
   end: XmlPosition;
 }
 
-export type SdfComment = Comment;
+export type XmlComment = Comment;
 
 // a Node is what the visitor keys will be based upon
 export type ESLintXmlParserNode = 'Tag' | 'Attr' | 'AttrName' | 'AttrVal' | 'Text';
@@ -90,7 +90,7 @@ export type ESLintXmlParserNode = 'Tag' | 'Attr' | 'AttrName' | 'AttrVal' | 'Tex
 export interface XmlBaseElement extends BaseNode {
   attr: Attr[];
   canHoldText: boolean;
-  children: (Tag | Text)[];
+  children: (Tag | Text | CommentNode)[];
   comments: Comment[];
   innerHTML: string;
   isClosed: boolean;
@@ -142,6 +142,8 @@ export interface Attr extends BaseNode {
   attrValue: AttrVal;
 }
 
+export type CommentNode = BaseNode;
+
 // /////
 
 export interface ParserOptions {
@@ -154,8 +156,9 @@ export interface ParserOptions {
 }
 
 export interface SdfParserOptions extends ParserOptions {
-  hasScriptIds?: boolean;
+  attrProperties?: boolean;
   tab?: string;
+  commentNodes?: boolean;
 }
 
 export interface XmlSyntaxTree extends BaseNode {
