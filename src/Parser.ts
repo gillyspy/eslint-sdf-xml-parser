@@ -174,9 +174,11 @@ export default class SdfParser {
   /**
    * @description Establishes line and column values for the position based on cumulative line breaks and tabs
    * @param {number} index
+   * @param {boolean} [zeroBased=true]
    * @returns {XmlPosition}
    */
-  getLineAndColumn(index: number): XmlPosition {
+  getLineAndColumn(index: number, zeroBased = true): XmlPosition {
+    const zeroOffset = zeroBased ? -1 : 0;
     const { lineBreakIndices, tabIndices } = this;
     let lineNumber = 0;
 
@@ -186,7 +188,7 @@ export default class SdfParser {
       }
     }
 
-    let column: number = index - lineBreakIndices[lineNumber - 1] - 1;
+    let column: number = index - lineBreakIndices[lineNumber - 1] + zeroOffset;
     let tabNumber = -1;
 
     while (++tabNumber < tabIndices.length) {
@@ -201,7 +203,7 @@ export default class SdfParser {
 
     return {
       line: lineNumber,
-      column: column + 1
+      column
     };
   }
 
@@ -346,16 +348,16 @@ export default class SdfParser {
             comments: [],
             attrName,
             attrValue,
-            // tag, // attach tag
             type: 'Attr',
-            // parent: null,
             parent: tag,
-            name: value,
+            name,
             range: [attrName.range[0], attrValue.range[1] + quoteLength]
           } as Attr
         ].forEach((newAttribute) => {
           // 📌 put a pin in it
           attrStack.push(newAttribute);
+          SdfParser.addAttributesAs$Props(newAttribute, { [name]: value });
+
           const [start, end] = newAttribute.range;
           newAttribute.loc = currentSdfParser.getLoc({ start, end });
 
@@ -800,7 +802,7 @@ export default class SdfParser {
    * };
    */
   static addAttributesAs$Props(
-    tag: Tag,
+    tag: Tag | Attr,
     attributes: {
       [s: string]: string;
     }
