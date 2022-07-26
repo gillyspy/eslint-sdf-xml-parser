@@ -7,9 +7,12 @@ require('eslint');
  * @description Constructs a rule that can demonstrate using selectors to suggest action.
  * @param {function} report
  * @param {string} selector
+ * @param {object} SC
  * @returns {function(node) : void}
  */
-const makePrinter = (report, selector) => (node) =>
+const makePrinter = (report, selector) => (node) => {
+  console.log({ selector }, node.value || node.tagName || node.value);
+
   report({
     node,
     messageId: 'YouSelected',
@@ -29,14 +32,17 @@ const makePrinter = (report, selector) => (node) =>
       }
     ]
   });
+};
 
 /**
  * @description Constructs a rule that can demonstrate using selectors to force action.
  * @param {function} report
  * @param {string} selector
+ * @param {getSourceCode} SC
  * @returns {function(node) : void}
  */
-const makeForcer = (report, selector) => (node) =>
+const makeForcer = (report, selector) => (node) => {
+  console.log({ selector }, node.value || node.tagName || node.value);
   report({
     node,
     messageId: 'RemoveThis',
@@ -49,8 +55,11 @@ const makeForcer = (report, selector) => (node) =>
      * @param {object} fixer Function containing fixer methods.
      * @returns {void}
      */
-    fix: (fixer) => fixer.remove(node)
+    fix: (fixer) => {
+      fixer.remove(node);
+    }
   });
+};
 
 module.exports = {
   meta: {
@@ -70,11 +79,12 @@ module.exports = {
   },
   /**
    * @description Exposes callbacks for the visitor keys and /or selectors.
-   * @param {Object} context Options Object.
-   * @param {string} context.id rule id.
-   * @param {Object} context.options configuration requested for the rule.
+   * @param {object} context Options Object.
+   * @param {string} context.id Rule id.
+   * @param {object} context.options Configuration requested for the rule.
    * @param {Function} context.report Built-in reporter.
-   * @returns {Object<string,function>}
+   * @param {Function} context.getSourceCode Gets An object to expose the sourcecode.
+   * @returns {Object<string,Function>} Object of functions for visitors.
    */
   create({ id, options, report, getSourceCode }) {
     const visitorFns = {};

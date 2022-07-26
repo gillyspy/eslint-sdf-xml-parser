@@ -12,7 +12,16 @@ const ruleTester = new RuleTester({
 });
 
 describe('print-node', () => {
-  const code = `<entityForm scriptid="custform123"><somegroup><sometag>somevalue</sometag><label/></somegroup></entityForm>`;
+  const code = `
+<!-- hi -->
+<entityForm scriptid="custform123">
+  <!-- two
+   -->
+  <somegroup>
+    <sometag>somevalue</sometag>
+    <label/>
+  </somegroup>
+</entityForm><!-- last one -->`;
   ruleTester.run('print-node', rule, {
     valid: [],
     invalid: [
@@ -55,6 +64,40 @@ describe('print-node', () => {
         options: [
           {
             selector: 'Tag[$scriptid] > Attr[name="scriptid"] ',
+            force: true
+          }
+        ],
+        output: '',
+        errors: [
+          {
+            line: 0,
+            column: 2,
+            messageId: 'YouSelected'
+          }
+        ]
+      },
+      {
+        code,
+        options: [
+          {
+            selector: 'Tag[$scriptid] > Line , Block ',
+            force: true
+          }
+        ],
+        output: '',
+        errors: [
+          {
+            line: 0,
+            column: 2,
+            messageId: 'YouSelected'
+          }
+        ]
+      },
+      {
+        code,
+        options: [
+          {
+            selector: 'Tag[tagName="lable"] > Tag.parent  ',
             force: true
           }
         ],
