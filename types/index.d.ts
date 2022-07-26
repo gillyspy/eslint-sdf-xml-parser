@@ -26,7 +26,10 @@ import { Tokenizer } from 'htmlparser2';
 /* eslint-disable no-use-before-define */
 export type SdfQuoteType = QuoteType;
 
-export type XmlTokenType =
+// eslint-disable-next-line prettier/prettier
+export type XmlTokenType = 'XmlSpace'
+  | 'XmlLineBreak'
+  | 'XmlIndent'
   | 'XmlTagName'
 
   // e.g. scriptid
@@ -51,7 +54,8 @@ export type XmlTokenType =
   | 'XmlTagEndSoft'
 
   // e.g. "/>"
-  | 'XmlTagEndHard';
+  | 'XmlTagEndHard'
+  | 'XmlText';
 
 export interface ESLintXmlParserToken extends AST.Token {
   type: XmlTokenType;
@@ -149,6 +153,7 @@ export interface ParserOptions {
 
 export interface SdfParserOptions extends ParserOptions {
   hasScriptIds?: boolean;
+  tab?: string;
 }
 
 export interface XmlSyntaxTree extends BaseNode {

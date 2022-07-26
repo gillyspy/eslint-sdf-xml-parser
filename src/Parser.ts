@@ -96,7 +96,7 @@ export default class SdfParser {
         ...acc,
         [key]: parserOptions[key]
       };
-    }, SdfParser.defaultOptions);
+    }, Object.fromEntries(Object.entries(SdfParser.defaultOptions).filter(([key]) => key !== 'tab')));
   }
 
   /**
@@ -419,10 +419,11 @@ export default class SdfParser {
         const currentEl = tagStack.pop();
 
         // remove the related temp #token
-        SdfParser.removeMatchFromCollection(
-          ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
-          currentSdfParser.#tokens
-        );
+        SdfParser.getMatchFromCollection({
+          /** @returns {boolean} */
+          test: ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
+          collection: currentSdfParser.#tokens
+        });
 
         const endTagLength: number = currentEl.isClosed ? 2 : 1;
 
@@ -443,25 +444,26 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext: (text: string): void => {
-        // console.log('ontext', { text });
-        /*  const raw: string = slicedCodePlus1({ code, ...htmlParser });
-          const [a, b] = rangePlus1(htmlParser);
+        console.log('ontext', { text });
 
-          const textContent: XmlText = {
-            type: 'XmlText',
-            parent: currentNodes.currentElement,
-            text,
-            value: text,
-            raw,
-            range: [a, b],
-            loc: {
-              start: getLineAndColumn(a),
-              end: getLineAndColumn(b)
-            }
-          };
-          currentNodes.currentElement?.children.push(textContent);
+        const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlText' });
 
-          tokens.push(textContent);*/
+        const [parent] = SdfParser.getMatchFromCollection({
+          /** @returns {boolean} */
+          test: ({ children }) => Array.isArray(children),
+          collection: currentSdfParser.tagStack,
+          removeIt: false
+        }) as Tag[];
+
+        if (!parent) return;
+
+        parent.children.push({
+          type: 'Text',
+          value: text,
+          range: [start, end],
+          loc: currentSdfParser.getLoc({ start, end }),
+          parent
+        });
       },
 
       /**
@@ -497,17 +499,79 @@ export default class SdfParser {
   }
 
   /**
+   * @description Examines the most recent token and the new token. If there are any spaces it will figure out the
+   * nature of them and create tokens for those spaces
+   * @param {ESLintXmlParserToken} token Token to be added.
+   * @returns {number} the length of the tokens collection
+   */
+  addToken(token: ESLintXmlParserToken): number {
+    const tokenStorage = this.tokens;
+    const lastToken = tokenStorage[tokenStorage.length - 1];
+    const { tab } = SdfParser.defaultOptions;
+    const rgxSource = ['(?:', [/(?<XmlLineBreak>\r?\n)/, RegExp(`(?<XmlIndent>${tab})`), /(?<XmlSpace> )/].map(({ source }) => source).join('|'), ')'].join('');
+    const rgxPatternExec = RegExp(rgxSource, 'g');
+    const rgxPatternMatch = RegExp(rgxSource, '');
+
+    const endOfLast = lastToken?.range ? lastToken.range[1] : 0;
+    const [startOfCurrent] = token.range;
+
+    const tokensToAdd: ESLintXmlParserToken[] = [];
+    let newStart: number = endOfLast;
+
+    if (endOfLast < startOfCurrent) {
+      const gapString = this.code.slice(endOfLast, startOfCurrent);
+
+      if (/^\s+$/.test(gapString)) {
+        // create a whitespace type of token and insert it
+        for (let found: string[] | null; found !== null; found = rgxPatternExec.exec(gapString)) {
+          const { lastIndex }: { lastIndex: number } = rgxPatternExec;
+          const [start, end] = [newStart, newStart + lastIndex];
+
+          newStart = Object.entries(found[0].match(RegExp(rgxPatternMatch)).groups).reduce((acc, [key, value]: [XmlTokenType, string]) => {
+            if (typeof value === 'undefined') return acc;
+
+            const range: [number, number] = [start, end];
+            const loc = this.getLoc({ start, end });
+
+            switch (key) {
+              case 'XmlLineBreak':
+              case 'XmlIndent':
+              case 'XmlTagName':
+                tokensToAdd.push({
+                  type: key,
+                  value,
+                  range,
+                  loc
+                });
+                break;
+              default:
+                break;
+            }
+            return acc + lastIndex;
+          }, newStart);
+        }
+      }
+    }
+
+    // all the whitespace tokens plus the original
+    return tokenStorage.push(...tokensToAdd, token);
+  }
+
+  /**
    * @param {XmlTokenType} type
    * @returns {[start : number,end : number]}
    */
   getPreviousTokenOfType = ({ type: requestedType }: { type: XmlTokenType }) => {
     const { tokens } = this;
-    return (
-      [tokens[tokens.length - 1]]
-        //
-        .filter(({ type }) => type === requestedType)
-        .map(({ range: [a, b] }) => ({ start: a, end: b }))
-    );
+
+    return SdfParser.getMatchFromCollection({
+      /** @returns {boolean} */
+      test: ({ type }) => type === requestedType,
+      collection: tokens,
+      removeIt: false
+    })
+      .filter(({ type }) => type === requestedType)
+      .map(({ range: [a, b] }) => ({ start: a, end: b }));
   };
 
   /**
@@ -539,7 +603,7 @@ export default class SdfParser {
             loc
           }
         ].forEach((xmlAttrName: ESLintXmlParserToken) => {
-          currentSdfParser.tokens.push(xmlAttrName);
+          currentSdfParser.addToken(xmlAttrName);
           currentSdfParser.#tokens.push(xmlAttrName);
         });
         // console.log('onattribname');
@@ -555,7 +619,7 @@ export default class SdfParser {
         // process "=" token
         // eslint-disable-next-line @typescript-eslint/no-shadow
         [{ start: matchingAttrRange.end, end: matchingAttrRange.end + 1 }].forEach(({ start, end }) => {
-          currentSdfParser.tokens.push({
+          currentSdfParser.addToken({
             type: 'XmlAttrOperator',
             value: currentSdfParser.code.slice(start, end),
             range: [start, end],
@@ -567,7 +631,7 @@ export default class SdfParser {
         if (matchingAttrRange.end && start >= matchingAttrRange.end + 2) {
           // eslint-disable-next-line @typescript-eslint/no-shadow
           [{ start: matchingAttrRange.end + 1, end: start }].forEach(({ start, end }) => {
-            currentSdfParser.tokens.push({
+            currentSdfParser.addToken({
               type: 'XmlAttrQuote',
               value: currentSdfParser.code.slice(start, end),
               range: [start, end],
@@ -586,7 +650,7 @@ export default class SdfParser {
           }
         ].forEach((xmlAttrValue: ESLintXmlParserToken) => {
           currentSdfParser.#tokens.push(xmlAttrValue);
-          currentSdfParser.tokens.push(xmlAttrValue);
+          currentSdfParser.addToken(xmlAttrValue);
         });
 
         // console.log('onattribdata');
@@ -603,7 +667,7 @@ export default class SdfParser {
 
         // eslint-disable-next-line @typescript-eslint/no-shadow
         [{ start: end, end: end + 1 }].forEach(({ start, end }) => {
-          currentSdfParser.tokens.push({
+          currentSdfParser.addToken({
             type: 'XmlAttrQuote',
             value: currentSdfParser.code.slice(start, end),
             range: [start, end],
@@ -651,7 +715,7 @@ export default class SdfParser {
             loc: currentSdfParser.getLoc({ start: end, end: newEnd })
           }
         ].forEach((token: ESLintXmlParserToken): void => {
-          currentSdfParser.tokens.push(token);
+          currentSdfParser.addToken(token);
 
           if (token.type === 'XmlTagName') currentSdfParser.#tokens.push(token);
         });
@@ -687,7 +751,7 @@ export default class SdfParser {
        * @returns {void}
        */
       onopentagend(end: number): void {
-        currentSdfParser.tokens.push({
+        currentSdfParser.addToken({
           type: 'XmlTagEndSoft',
           value: '>',
           range: [end, end + 1],
@@ -701,7 +765,7 @@ export default class SdfParser {
        */
       onopentagname(start: number, end: number): void {
         // add a < to the tokens
-        currentSdfParser.tokens.push({
+        currentSdfParser.addToken({
           type: 'XmlTagBeginSoft',
           value: '<',
           range: [start - 1, start],
@@ -717,7 +781,7 @@ export default class SdfParser {
             loc: currentSdfParser.getLoc({ start, end })
           } as ESLintXmlParserToken
         ].forEach((tagToken) => {
-          currentSdfParser.tokens.push(tagToken);
+          currentSdfParser.addToken(tagToken);
           currentSdfParser.#tokens.push(tagToken);
         });
 
@@ -742,7 +806,7 @@ export default class SdfParser {
           tag.isClosed = true;
         });
         // add a close token
-        currentSdfParser.tokens.push({
+        currentSdfParser.addToken({
           type: 'XmlTagEndHard',
           value: '/>',
           range: [end - 1, end + 1],
@@ -756,8 +820,22 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext(start: number, end: number): void {
-        // console.log('ontext', currentSdfParser.code);
-        return parserPrototypes.ontext(start, end);
+        [
+          {
+            type: 'XmlText',
+            value: currentSdfParser.code.slice(start, end),
+            range: [start, end],
+            loc: currentSdfParser.getLoc({ start, end })
+          } as ESLintXmlParserToken
+        ].forEach((newText) => {
+          currentSdfParser.addToken(newText);
+
+          // any need to add it to temporary?
+          // currentSdfParser.#tokens.push(newText);
+
+          console.log('ontext', currentSdfParser.code);
+          return parserPrototypes.ontext(start, end);
+        });
       },
       /**
        * @returns {void}
@@ -835,7 +913,8 @@ export default class SdfParser {
     decodeEntities: false, // should already be decoded by SDF natively
     lowerCaseTags: false,
     lowerCaseAttributeNames: false,
-    recognizeSelfClosing: true
+    recognizeSelfClosing: true,
+    tab: '  '
     // Tokenizer              : makeTokenizer(tokens)
   };
 
@@ -850,14 +929,25 @@ export default class SdfParser {
    * @see Array.prototype.splice
    * @param {any[]} collection Array to scan and modify.
    * @param {():boolean} test Function that provides a strict boolean test for the current item.
+   * @param {boolean} removeIt Whether to also remove the match from the collection.
    * @param {number} [startPoint] index to begin scanning (in reverse). Defaults to end of the Array.
    * @returns {Array<any>} Array of length 0 or 1 (depending upon changes).
    */
-  static removeMatchFromCollection = (test: { (any): boolean }, collection: any[], startPoint?: number): any[] => {
+  static getMatchFromCollection = ({
+    test,
+    collection,
+    removeIt = true,
+    startPoint
+  }: {
+    test: { (any): boolean };
+    collection: any[];
+    removeIt?: boolean;
+    startPoint?: number;
+  }): any[] => {
     let idx = typeof startPoint === 'number' ? startPoint : collection.length - 1;
     for (; idx >= 0; idx--) {
       if (test(collection[idx]) === true) {
-        return collection.splice(idx, 1);
+        return removeIt === true ? collection.splice(idx, 1) : collection.slice(idx, 1);
       }
     }
     return [];
