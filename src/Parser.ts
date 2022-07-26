@@ -422,7 +422,8 @@ export default class SdfParser {
         SdfParser.getMatchFromCollection({
           /** @returns {boolean} */
           test: ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
-          collection: currentSdfParser.#tokens
+          collection: currentSdfParser.#tokens,
+          removeIt: true
         });
 
         const endTagLength: number = currentEl.isClosed ? 2 : 1;
@@ -448,7 +449,11 @@ export default class SdfParser {
 
         const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlText' });
 
-        const [parent] = SdfParser.getMatchFromCollection({
+        let parent = null;
+
+        if (!currentSdfParser.tagStack.length) return;
+
+        [parent] = SdfParser.getMatchFromCollection({
           /** @returns {boolean} */
           test: ({ children }) => Array.isArray(children),
           collection: currentSdfParser.tagStack,
@@ -523,7 +528,7 @@ export default class SdfParser {
 
       if (/^\s+$/.test(gapString)) {
         // create a whitespace type of token and insert it
-        for (let found: string[] | null; found !== null; found = rgxPatternExec.exec(gapString)) {
+        for (let found: string[] | null = rgxPatternExec.exec(gapString); found !== null; found = rgxPatternExec.exec(gapString)) {
           const { lastIndex }: { lastIndex: number } = rgxPatternExec;
           const [start, end] = [newStart, newStart + lastIndex];
 
@@ -561,17 +566,20 @@ export default class SdfParser {
    * @param {XmlTokenType} type
    * @returns {[start : number,end : number]}
    */
-  getPreviousTokenOfType = ({ type: requestedType }: { type: XmlTokenType }) => {
-    const { tokens } = this;
-
-    return SdfParser.getMatchFromCollection({
-      /** @returns {boolean} */
-      test: ({ type }) => type === requestedType,
-      collection: tokens,
-      removeIt: false
-    })
-      .filter(({ type }) => type === requestedType)
-      .map(({ range: [a, b] }) => ({ start: a, end: b }));
+  getPreviousTokenOfType = ({ type: requestedType }: { type: XmlTokenType }): { start: number; end: number }[] => {
+    try {
+      return SdfParser.getMatchFromCollection({
+        /**
+         *
+         */
+        test: ({ type }) => type === requestedType,
+        collection: this.tokens,
+        removeIt: false
+      }).map(({ range: [a, b] }) => ({ start: a, end: b }));
+    } catch (e) {
+      console.log({ e });
+    }
+    return [];
   };
 
   /**
@@ -908,16 +916,6 @@ export default class SdfParser {
    */
   static extractInner = ({ raw }): string | null => raw.match(SdfParser.contentsOfTagRgx)?.groups?.content || null;
 
-  static defaultOptions: Partial<SdfParserOptions> = {
-    xmlMode: false,
-    decodeEntities: false, // should already be decoded by SDF natively
-    lowerCaseTags: false,
-    lowerCaseAttributeNames: false,
-    recognizeSelfClosing: true,
-    tab: '  '
-    // Tokenizer              : makeTokenizer(tokens)
-  };
-
   /**
    * @description iterates in reverse over an Array, running a test against each item and removing the first entry that
    * passes the test (strict match).  It will stop after one removal.  If provided it wil begin scanning at the start
@@ -936,21 +934,45 @@ export default class SdfParser {
   static getMatchFromCollection = ({
     test,
     collection,
-    removeIt = true,
+    removeIt,
     startPoint
   }: {
-    test: { (any): boolean };
+    test: { (arg: any): boolean };
     collection: any[];
     removeIt?: boolean;
     startPoint?: number;
   }): any[] => {
+    if (!Array.isArray(collection)) throw new TypeError('collection is not an array');
+
     let idx = typeof startPoint === 'number' ? startPoint : collection.length - 1;
+
+    let matches = [];
+
     for (; idx >= 0; idx--) {
       if (test(collection[idx]) === true) {
-        return removeIt === true ? collection.splice(idx, 1) : collection.slice(idx, 1);
+        try {
+          if (removeIt === true) matches = collection.splice(idx, 1);
+        } catch (e) {
+          throw new TypeError('cannot splice this Array');
+        }
+
+        if (idx === 0 || idx === collection.length) matches = collection.slice(idx);
+
+        matches = collection.slice(idx, idx + 1);
+        break;
       }
     }
-    return [];
+    return matches;
+  };
+
+  static defaultOptions: Partial<SdfParserOptions> = {
+    xmlMode: false,
+    decodeEntities: false, // should already be decoded by SDF natively
+    lowerCaseTags: false,
+    lowerCaseAttributeNames: false,
+    recognizeSelfClosing: true,
+    tab: '  '
+    // Tokenizer              : makeTokenizer(tokens)
   };
 
   static contentsOfTagRgx = /^(?:<(?<tagname>[^ >]+))(?:[^/>]*[/][>]$|[^/>]*[>](?<content>[\s\S]*?)(?:<[/]\k<tagname>)>$)/;
