@@ -31,6 +31,7 @@ import {
 }                     from 'htmlparser2';
 import { Callbacks } from 'htmlparser2/lib/Tokenizer';
 // eslint-disable-next-line prettier/prettier
+import {name} from "ts-jest/dist/transformers/hoist-jest";
 import {
   Attr,
   AttrName,
@@ -42,7 +43,7 @@ import {
   XmlPosition,
   XmlSourceLocation,
   XmlTokenType,
-  XmlComment as Comment
+  SdfComment as Comment
 } from '../types';
 
 export default class SdfParser {
@@ -53,6 +54,8 @@ export default class SdfParser {
   public code: string;
 
   public tokens: ESLintXmlParserToken[];
+
+  public comments: Comment[];
 
   #tokens: ESLintXmlParserToken[];
 
@@ -82,6 +85,8 @@ export default class SdfParser {
     Object.assign(this, SdfParser.makeIndices(code));
     this.tokens = [];
     this.#tokens = [];
+    this.comments = [];
+
     this.root = null;
     this.currentElement = null;
     this.currentAttribute = null;
@@ -267,24 +272,15 @@ export default class SdfParser {
         // create a new tag.
         const parent: Tag = this.root === null ? null : [...tagStack].pop();
 
-        const tokenLength = currentSdfParser.#tokens.length;
-        let idx = tokenLength - 1;
-
-        // going backwards will be much faster
-        for (; idx >= 0; idx--) {
-          const {
-            type,
-            range: [nameStart],
-            value
-          } = currentSdfParser.#tokens[idx];
-
-          if (['XmlTagName'].includes(type)) {
-            if (value !== tagName) throw new Error(`Should have found tag ${tagName}`);
-
-            const idxToSlice = idx;
-            // we have a match: remove from the temp array #tokens
-            currentSdfParser.#tokens.splice(idxToSlice, 1);
-
+        currentSdfParser
+          .getMatchFromCollection({
+            /** @returns {boolean} */
+            test: ({ type, value }) => type === 'XmlTagName' && value === tagName,
+            collection: currentSdfParser.#tokens,
+            removeIt: true
+          })
+          .forEach((nameToken) => {
+            const [start] = nameToken.range;
             // add this one as a temporary tag
             const tag = {
               attr: [],
@@ -293,7 +289,7 @@ export default class SdfParser {
               canHoldText: null,
               innerHTML: null,
               isClosed: null,
-              range: [nameStart - 1, null],
+              range: [start - 1, null],
               type: 'Tag',
               tagName,
               parent: null,
@@ -301,28 +297,30 @@ export default class SdfParser {
               value: null
             } as Tag;
 
-            if (this.root === null) {
-              this.root = tag;
+            if (currentSdfParser.root === null) {
+              currentSdfParser.root = tag;
+
+              tag.leadingComments = [];
+              tag.trailingComments = [];
 
               // add any leading comments are comments that are already logged buuut had nothing to attach to
-              SdfParser.getMatchFromCollection({
-                /** @returns {boolean} */
-                test: () => true,
-                removeIt: true,
-                collection: currentSdfParser.commentStack
-              }).forEach((comment) => {
-                this.root.leadingComments.push(comment);
-              });
+              currentSdfParser
+                .getMatchFromCollection({
+                  /** @returns {boolean} */
+                  test: () => true,
+                  removeIt: true,
+                  collection: currentSdfParser.commentStack
+                })
+                .forEach((comment) => {
+                  currentSdfParser.root.leadingComments.push(comment);
+                });
             }
 
             tagStack.push(tag);
 
             // associate parent to children if relevant
             parent?.children?.push(tag);
-
-            break;
-          }
-        }
+          });
       },
 
       /**
@@ -444,7 +442,7 @@ export default class SdfParser {
         const currentEl = tagStack.pop();
 
         // remove the related temp #token
-        SdfParser.getMatchFromCollection({
+        currentSdfParser.getMatchFromCollection({
           /** @returns {boolean} */
           test: ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
           collection: currentSdfParser.#tokens,
@@ -478,7 +476,7 @@ export default class SdfParser {
 
         if (!currentSdfParser.tagStack.length) return;
 
-        [parent] = SdfParser.getMatchFromCollection({
+        [parent] = currentSdfParser.getMatchFromCollection({
           /** @returns {boolean} */
           test: ({ children }) => Array.isArray(children),
           collection: currentSdfParser.tagStack,
@@ -502,34 +500,32 @@ export default class SdfParser {
        * @example //
        * @returns {void}
        */
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       oncomment: (comment: string): void => {
-        const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlComment' });
-
+        // assume no parent available
         let parent = null;
 
+        // look for a parent
         if (currentSdfParser.tagStack.length) {
-          [parent] = SdfParser.getMatchFromCollection({
+          [parent] = currentSdfParser.getMatchFromCollection({
             /** @returns {boolean} */
-            test: ({ children }) => Array.isArray(children),
+            test: ({ comments }) => Array.isArray(comments),
             collection: currentSdfParser.tagStack,
             removeIt: false
           }) as Tag[];
         }
-        const newComment = {
-          type: 'Line',
-          value: comment,
-          range: [start, end],
-          loc: currentSdfParser.getLoc({ start, end })
-        } as Comment;
 
-        if (newComment.loc.start.line !== newComment.loc.end.line) newComment.type = 'Block';
-
-        if (parent) {
-          parent.comments.push(newComment);
-        } else {
-          // add to the comment stack for later;
-          currentSdfParser.commentStack.push(newComment);
-        }
+        // look for a comment on the stack to associate to the parent
+        currentSdfParser
+          .getMatchFromCollection({
+            /** @returns {boolean} */
+            test: () => parent?.type === 'Tag',
+            removeIt: true,
+            collection: currentSdfParser.commentStack
+          })
+          .forEach((orphan: Comment) => {
+            parent.comments.push(orphan);
+          });
       }
     };
 
@@ -601,7 +597,7 @@ export default class SdfParser {
    */
   getPreviousTokenOfType = ({ type: requestedType }: { type: XmlTokenType }): { start: number; end: number }[] => {
     try {
-      return SdfParser.getMatchFromCollection({
+      return this.getMatchFromCollection({
         /** @returns {boolean} */
         test: ({ type }) => type === requestedType,
         collection: this.tokens,
@@ -766,22 +762,48 @@ export default class SdfParser {
        * @description a block comment is one that spans more than one line. Otherwise, no difference.
        * @returns {void}
        */
-      oncomment(start: number, end: number, endOffset: number): void {
+      oncomment(start: number, endCombo: number, endOffset: number): void {
+        const end = endCombo - endOffset;
+
+        // comment begin
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        [{ start: start - 4, end: start }].forEach(({ start, end }) => {
+          currentSdfParser.tokens.push({
+            type: 'XmlCommentBegin',
+            value: '<!--',
+            range: [start, end],
+            loc: currentSdfParser.getLoc({ start, end })
+          });
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        [{ start: end, end: end + endOffset + 1 }].forEach(({ start, end }) => {
+          currentSdfParser.tokens.push({
+            type: 'XmlCommentEnd',
+            value: '>'.padStart(endOffset + 1, '-'),
+            range: [start, end],
+            loc: currentSdfParser.getLoc({ start, end })
+          });
+        });
+
         [
           {
-            type: 'XmlComment',
+            type: 'Line',
             value: currentSdfParser.code.slice(start, end),
             range: [start, end],
             loc: currentSdfParser.getLoc({ start, end })
-          } as ESLintXmlParserToken
-        ].forEach((newText) => {
-          currentSdfParser.addToken(newText);
+          } as Comment
+        ].forEach((newComment) => {
+          if (newComment.loc.start.line !== newComment.loc.end.line) newComment.type = 'Block';
+          currentSdfParser.comments.push(newComment);
+          currentSdfParser.commentStack.push(newComment);
 
           // any need to add it to temporary?
           // currentSdfParser.#tokens.push(newText);
         });
+
         // console.log('oncomment');
-        return parserPrototypes.oncomment(start, end, endOffset);
+        return parserPrototypes.oncomment(start, endCombo, endOffset);
       },
       /**
        * @returns {void}
@@ -798,14 +820,16 @@ export default class SdfParser {
        */
       onend(): void {
         // add any trailing comments to the root node
-        SdfParser.getMatchFromCollection({
-          /** @returns {boolean} */
-          test: () => true,
-          removeIt: true,
-          collection: currentSdfParser.commentStack
-        }).forEach((comment) => {
-          this.root.trailingComments.push(comment);
-        });
+        currentSdfParser
+          .getMatchFromCollection({
+            /** @returns {boolean} */
+            test: () => true,
+            removeIt: true,
+            collection: currentSdfParser.commentStack
+          })
+          .forEach((comment) => {
+            this.root?.trailingComments.push(comment);
+          });
 
         if (currentSdfParser.#tokens.length) throw new Error(`You still have ${currentSdfParser.#tokens.length} tokens to deal with`);
 
@@ -987,7 +1011,8 @@ export default class SdfParser {
    * @param {number} [startPoint] index to begin scanning (in reverse). Defaults to end of the Array.
    * @returns {Array<any>} Array of length 0 or 1 (depending upon changes).
    */
-  static getMatchFromCollection = ({
+  // eslint-disable-next-line class-methods-use-this
+  getMatchFromCollection({
     test,
     collection,
     removeIt,
@@ -997,29 +1022,27 @@ export default class SdfParser {
     collection: any[];
     removeIt?: boolean;
     startPoint?: number;
-  }): any[] => {
+  }): any[] {
     if (!Array.isArray(collection)) throw new TypeError('collection is not an array');
 
-    let idx = typeof startPoint === 'number' ? startPoint : collection.length - 1;
-
-    let matches = [];
+    let idx = Math.max(typeof startPoint === 'number' ? startPoint : collection.length - 1, collection.length - 1);
 
     for (; idx >= 0; idx--) {
       if (test(collection[idx]) === true) {
         try {
-          if (removeIt === true) matches = collection.splice(idx, 1);
+          if (removeIt === true) return collection.splice(idx, 1);
         } catch (e) {
           throw new TypeError('cannot splice this Array');
         }
 
-        if (idx === 0 || idx === collection.length) matches = collection.slice(idx);
+        if (idx === 0 || idx === collection.length) return collection.slice(idx);
 
-        matches = collection.slice(idx, idx + 1);
+        return collection.slice(idx, idx + 1);
         break;
       }
     }
-    return matches;
-  };
+    return [];
+  }
 
   static defaultOptions: Partial<SdfParserOptions> = {
     xmlMode: false,

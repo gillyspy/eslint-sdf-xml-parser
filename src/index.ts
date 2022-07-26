@@ -18,11 +18,11 @@ export const parseForESLint = (code: string, options): ESLintXmlParseResult => {
   // trigger the parser but we do not need the output
   parser.parse();
 
-  const { visitorKeys, tokens, root } = parser;
+  const { visitorKeys, tokens, root, comments } = parser;
 
   const syntaxTree: XmlSyntaxTree = {
     type: 'Program',
-    comments: [],
+    comments,
     tokens,
     root,
     loc: root.loc, // can get the location programmatically later

@@ -56,7 +56,8 @@ export type XmlTokenType = 'XmlSpace'
   // e.g. "/>"
   | 'XmlTagEndHard'
   | 'XmlText'
-  | 'XmlComment';
+  | 'XmlCommentBegin'
+  | 'XmlCommentEnd';
 
 export interface ESLintXmlParserToken extends AST.Token {
   type: XmlTokenType;
@@ -77,7 +78,7 @@ export interface XmlSourceLocation extends AST.SourceLocation {
   end: XmlPosition;
 }
 
-export type XmlComment = Comment;
+export type SdfComment = Comment;
 
 // a Node is what the visitor keys will be based upon
 export type ESLintXmlParserNode = 'Tag' | 'Attr' | 'AttrName' | 'AttrVal' | 'Text';
