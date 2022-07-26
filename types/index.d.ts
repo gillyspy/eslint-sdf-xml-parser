@@ -55,7 +55,8 @@ export type XmlTokenType = 'XmlSpace'
 
   // e.g. "/>"
   | 'XmlTagEndHard'
-  | 'XmlText';
+  | 'XmlText'
+  | 'XmlComment';
 
 export interface ESLintXmlParserToken extends AST.Token {
   type: XmlTokenType;
