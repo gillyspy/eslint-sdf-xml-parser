@@ -6,7 +6,7 @@ import {
   // eslint-disable-next-line import/no-unresolved
 } from 'estree';
 import { ScopeManager } from 'eslint-scope';
-
+import { Tokenizer } from 'htmlparser2';
 
 /**
  * @description Tokens range should not overlap and so our choice of
@@ -23,15 +23,32 @@ import { ScopeManager } from 'eslint-scope';
  * methods more directly.
  */
 
+export type SdfQuoteType = QuoteType;
+
 export type XmlTokenType =
   | 'XmlTagName'
-  | 'XmlAttrExpression'
+
+  // e.g. scriptid
+  | 'XmlAttrName'
+
+  // e.g. "="
+  | 'XmlAttrOperator'
+
+  // e.g. "custform123"
+  | 'XmlAttrValue'
+
+  // e.g. '"'
+  | 'XmlAttrQuote'
+
   // e.g. "<"
   | 'XmlTagBeginSoft'
+
   // e.g. "</"
   | 'XmlTagBeginHard'
+
   // e.g. ">"
   | 'XmlTagEndSoft'
+
   // e.g. "/>"
   | 'XmlTagEndHard';
 
@@ -42,109 +59,80 @@ export interface ESLintXmlParserToken extends AST.Token {
   loc: AST.SourceLocation;
 }
 
+export interface XmlPosition {
+  /** >= 1 */
+  line: number;
+  /** >= 0 */
+  column: number;
+}
+
+export interface XmlSourceLocation extends AST.SourceLocation {
+  start: XmlPosition;
+  end: XmlPosition;
+}
+
 export type XmlComment = Comment;
 
 // a Node is what the visitor keys will be based upon
-export type ESLintXmlParserNode = 'XmlElement' | 'XmlAttribute' | 'XmlAttributeName' | 'XmlAttributeValue' | 'XmlText';
+export type ESLintXmlParserNode = 'Tag' | 'Attr' | 'AttrName' | 'AttrVal' | 'Text';
 
 // element related
 
 // base element is one that others are based on (and is never directly assigned)
 // all elements can have attributes
 export interface XmlBaseElement extends BaseNode {
-  comments: null;
-  type: string;
-  parent: XmlElement | null;
-  tagName: null;
-  canHoldText: null;
-  attributes: XmlAttribute[];
-  isClosed: null;
+  attr: Attr[];
+  canHoldText: boolean;
+  children: (Tag | Text)[];
+  comments: Comment[];
+  innerHTML: string;
+  isClosed: boolean;
+  parent: Tag | null;
+  type: 'Tag';
+  tagName: string;
   // no children
-  children: null;
+  // arbitrary keys based on attributes
+  [key: string]: unknown;
 }
 
-export interface XmlDynamicElement extends XmlBaseElement {
-  comments: Comment[];
+export interface XmlAdhoc extends XmlBaseElement {
   type: string;
-  parent: XmlElement;
-  tagName: string;
-  canHoldText: boolean;
-  attributes: XmlAttribute[];
-  isClosed: boolean;
-  children: (XmlElement | XmlText)[];
 }
 
-
-
-export interface XmlText extends BaseNode {
-  type: 'XmlText';
+export interface Text extends BaseNode {
+  type: 'Text';
   value: string;
-  parent: XmlElement;
+  parent: Tag;
 }
 
-export interface XmlRoot extends XmlBaseElement {
-  comments: XmlComment[];
-  type: 'XmlRoot';
-  canHoldText: boolean;
-  children: (XmlElement | XmlText)[];
-  isClosed;
-  boolean;
-  parent: null;
-}
-
-// bottom element is one that
-// can never have children (by SDF definition)
-// and can never have comments
-export interface XmlBottomElement extends XmlBaseElement {
-  type: 'XmlBottomElement';
-  comments: null;
-  canHoldText: boolean;
-  isClosed: boolean;
-  parent: XmlElement;
-}
-
-// group element is one that
-// can have child (by SDF definition)
-// can never contain text
-// can have comments
-export interface XmlGroupElement extends XmlBaseElement {
-  comments: Comment[];
-  type: 'XmlGroupElement';
-  tagName: string;
-  canHoldText: false;
-  isClosed: boolean;
-  parent: XmlElement;
-  children: (XmlElement | XmlText)[];
-}
-
-// the value of XmlElement is derived from the token methods
-// every element has a parent otherwise it is a root
-export interface XmlClosedElement extends XmlBaseElement {
-  type: 'XmlClosedElement';
-  parent: XmlElement;
-  isClosed: boolean;
-}
-
-export type XmlElement = XmlRoot | XmlBottomElement | XmlGroupElement | XmlClosedElement | XmlBaseElement | XmlDynamicElement;
+export type Tag = XmlBaseElement | XmlAdhoc;
 
 // ////// attribute related
 
-export interface XmlAttributeValue extends BaseNode {
-  type: 'XmlAttributeValue';
-  tag: XmlElement;
+export interface AttrVal extends BaseNode {
+  type: 'AttrVal';
+  parent: Attr;
+  tag: Tag;
+  value: string;
+  quote: '"' | "'" | '' | undefined;
 }
 
-export interface XmlAttributeName extends BaseNode {
-  type: 'XmlAttributeName';
-  tag: XmlElement;
-  attributeValue: XmlAttributeValue;
+export interface AttrName extends BaseNode {
+  type: 'AttrName';
+  parent: Attr;
+  tag: Tag;
+  value: string;
+  // attributeValue: AttrVal;
 }
 
-export interface XmlAttribute extends BaseNode {
-  type: 'XmlAttribute';
-  tag: XmlElement;
-  attributeName: XmlAttributeName;
-  attributeValue: XmlAttributeValue;
+export interface Attr extends BaseNode {
+  type: 'Attr';
+  tag: Tag;
+  parent: Tag;
+  name: string;
+  // these need to be fields of the Attr visitor key
+  attrName: AttrName;
+  attrValue: AttrVal;
 }
 
 // /////
@@ -162,10 +150,10 @@ export interface SdfParserOptions extends ParserOptions {
   hasScriptIds?: boolean;
 }
 
-export interface XmlSyntaxTree extends ESLintXmlParserToken {
+export interface XmlSyntaxTree extends BaseNode {
   comments: any[];
   tokens: ESLintXmlParserToken[];
-  root: XmlRoot;
+  root: Tag;
   type: 'Program';
 }
 
