@@ -81,6 +81,8 @@ export default class SdfParser {
     this.visitorKeys = {
       'Program': ['root'],
       'Attr': ['attrName', 'attrValue'],
+      'AttrName': [],
+      'AttrVal': [],
       'Tag': ['children', 'attr'],
       'Text': [],
       'Comment': []
@@ -199,7 +201,7 @@ export default class SdfParser {
 
     return {
       line: lineNumber,
-      column
+      column: column + 1
     };
   }
 
@@ -245,7 +247,7 @@ export default class SdfParser {
        * @returns {void}
        */
       onopentagname: (tagName: string): void => {
-        console.log('onopentagname handler edition');
+        // console.log('onopentagname handler edition');
 
         // create a new tag.
         const parent: Tag = this.root === null ? null : [...tagStack].pop();
@@ -306,7 +308,7 @@ export default class SdfParser {
        * @returns {void}
        */
       onattribute: (name: string, value: string, quote: '"' | "'" | '' | undefined): void => {
-        console.log('onattribute');
+        // console.log('onattribute');
         const quoteLength = quote?.length || 0;
 
         // obtain temp tag without removing it from temporary status
@@ -322,13 +324,13 @@ export default class SdfParser {
               if (type === 'XmlAttrName' && v === name) {
                 // remove from the temp array #tokens
                 indicesToSlice.unshift(idxToSlice);
-                return { ...acc, attrName: { type: 'AttrName', value: v, tag, range, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
+                return { ...acc, attrName: { type: 'AttrName', value: v, range, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
               }
 
               if (type === 'XmlAttrValue' && v === value) {
                 // remove from the temp array #tokens
                 indicesToSlice.unshift(idxToSlice);
-                return { ...acc, attrValue: { type: 'AttrVal', value: v, tag, range, quote, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
+                return { ...acc, attrValue: { type: 'AttrVal', value: v, range, quote, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
               }
 
               return acc;
@@ -344,11 +346,11 @@ export default class SdfParser {
             comments: [],
             attrName,
             attrValue,
-            tag, // attach tag
+            // tag, // attach tag
             type: 'Attr',
-            parent: null,
-            // parent: tag,
-            name,
+            // parent: null,
+            parent: tag,
+            name: value,
             range: [attrName.range[0], attrValue.range[1] + quoteLength]
           } as Attr
         ].forEach((newAttribute) => {
@@ -357,8 +359,9 @@ export default class SdfParser {
           const [start, end] = newAttribute.range;
           newAttribute.loc = currentSdfParser.getLoc({ start, end });
 
-          newAttribute.attrName.parent = null; // newAttribute;
-          newAttribute.attrValue.parent = null; // newAttribute;
+          newAttribute.attrName.parent = newAttribute;
+
+          newAttribute.attrValue.parent = newAttribute;
 
           // attach to the tag
           tag?.attr.push(newAttribute);
@@ -391,7 +394,7 @@ export default class SdfParser {
           [s: string]: string;
         }
       ): void => {
-        console.log('opentag');
+        // console.log('opentag');
         // get latest element from stack without removing it
         const newElement = tagStack[tagStack.length - 1];
 
@@ -410,7 +413,7 @@ export default class SdfParser {
        * @returns {void}
        */
       onclosetag: (tagName: string): void => {
-        console.log('onclosetag handler edition');
+        // console.log('onclosetag handler edition');
         const currentEl = tagStack.pop();
 
         // remove the related temp #token
@@ -424,7 +427,7 @@ export default class SdfParser {
         if (currentEl.tagName !== tagName) throw new Error('open tag does not match currentElement');
         const end: number = currentSdfParser.parser.endIndex + endTagLength;
         currentEl.range[1] = end;
-        currentEl.log = currentSdfParser.getLoc({ start: currentEl.range[0], end });
+        currentEl.loc = currentSdfParser.getLoc({ start: currentEl.range[0], end });
         currentEl.value = currentSdfParser.code.slice(...currentEl.range);
         currentEl.innerHTML = SdfParser.extractInner({ raw: currentEl.value });
 
@@ -438,7 +441,7 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext: (text: string): void => {
-        console.log('ontext', { text });
+        // console.log('ontext', { text });
         /*  const raw: string = slicedCodePlus1({ code, ...htmlParser });
           const [a, b] = rangePlus1(htmlParser);
 
@@ -466,7 +469,7 @@ export default class SdfParser {
        * @returns {void}
        */
       oncomment: (comment: string): void => {
-        console.log('oncomment', { comment });
+        // console.log('oncomment', { comment });
         /*  const raw: string = slicedCodePlus1({ code, ...htmlParser });
           const [a, b] = rangePlus1(htmlParser);
 
@@ -518,7 +521,7 @@ export default class SdfParser {
        * @returns {void}
        */
       onattribentity(codepoint: number): void {
-        console.log('onattribentity');
+        // console.log('onattribentity');
         return parserPrototypes.onattribentity(codepoint);
       },
       /**
@@ -537,7 +540,7 @@ export default class SdfParser {
           currentSdfParser.tokens.push(xmlAttrName);
           currentSdfParser.#tokens.push(xmlAttrName);
         });
-        console.log('onattribname');
+        // console.log('onattribname');
         return parserPrototypes.onattribname(start, end);
       },
       /**
@@ -584,14 +587,14 @@ export default class SdfParser {
           currentSdfParser.tokens.push(xmlAttrValue);
         });
 
-        console.log('onattribdata');
+        // console.log('onattribdata');
         return parserPrototypes.onattribdata(start, end);
       },
       /**
        * @returns {void}
        */
       onattribend(quote, end: number): void {
-        console.log('onattribend');
+        // console.log('onattribend');
         if ([SdfParser.QuoteType.Unquoted, SdfParser.QuoteType.NoValue].includes(quote)) return;
 
         // if there is a gap of 1 then it's a quote -- capture the quote token
@@ -613,7 +616,7 @@ export default class SdfParser {
        * @returns {void}
        */
       oncdata(start: number, end: number, endOffset: number): void {
-        console.log('oncdata');
+        // console.log('oncdata');
         return parserPrototypes.oncdata(start, end, endOffset);
       },
       /**
@@ -651,28 +654,28 @@ export default class SdfParser {
           if (token.type === 'XmlTagName') currentSdfParser.#tokens.push(token);
         });
 
-        console.log('onclosetag');
+        // console.log('onclosetag');
         return parserPrototypes.onclosetag(start, end);
       },
       /**
        * @returns {void}
        */
       oncomment(start: number, end: number, endOffset: number): void {
-        console.log('oncomment');
+        // console.log('oncomment');
         return parserPrototypes.oncomment(start, end, endOffset);
       },
       /**
        * @returns {void}
        */
       ondeclaration(start: number, end: number): void {
-        console.log('ondeclaration');
+        // console.log('ondeclaration');
         return parserPrototypes.ondeclaration(start, end);
       },
       /**
        * @returns {void}
        */
       onend(): void {
-        console.log('onend');
+        // console.log('onend');
 
         if (currentSdfParser.#tokens.length) throw new Error(`You still have ${currentSdfParser.#tokens.length} tokens to deal with`);
 
@@ -688,7 +691,7 @@ export default class SdfParser {
           range: [end, end + 1],
           loc: currentSdfParser.getLoc({ start: end, end: end + 1 })
         } as ESLintXmlParserToken);
-        console.log('onopentagend');
+        // console.log('onopentagend');
         return parserPrototypes.onopentagend(end);
       },
       /**
@@ -716,14 +719,14 @@ export default class SdfParser {
           currentSdfParser.#tokens.push(tagToken);
         });
 
-        console.log('onopentagname');
+        // console.log('onopentagname');
         return parserPrototypes.onopentagname(start, end);
       },
       /**
        * @returns {void}
        */
       onprocessinginstruction(start: number, end: number): void {
-        console.log('onprocessinginstruction');
+        // console.log('onprocessinginstruction');
         return parserPrototypes.onprocessinginstruction(start, end);
       },
       /**
@@ -744,21 +747,21 @@ export default class SdfParser {
           loc: currentSdfParser.getLoc({ start: end - 1, end: end + 1 })
         } as ESLintXmlParserToken);
 
-        console.log('onselfclosingtag');
+        // console.log('onselfclosingtag');
         return parserPrototypes.onselfclosingtag(end);
       },
       /**
        * @returns {void}
        */
       ontext(start: number, end: number): void {
-        console.log('ontext', currentSdfParser.code);
+        // console.log('ontext', currentSdfParser.code);
         return parserPrototypes.ontext(start, end);
       },
       /**
        * @returns {void}
        */
       ontextentity(codepoint: number): void {
-        console.log('ontextentity');
+        // console.log('ontextentity');
         return parserPrototypes.ontextentity(codepoint);
       }
     };

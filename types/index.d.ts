@@ -23,6 +23,7 @@ import { Tokenizer } from 'htmlparser2';
  * methods more directly.
  */
 
+/* eslint-disable no-use-before-define */
 export type SdfQuoteType = QuoteType;
 
 export type XmlTokenType =
@@ -112,7 +113,7 @@ export type Tag = XmlBaseElement | XmlAdhoc;
 export interface AttrVal extends BaseNode {
   type: 'AttrVal';
   parent: Attr;
-  tag: Tag;
+  // tag: Tag;
   value: string;
   quote: '"' | "'" | '' | undefined;
 }
@@ -120,14 +121,14 @@ export interface AttrVal extends BaseNode {
 export interface AttrName extends BaseNode {
   type: 'AttrName';
   parent: Attr;
-  tag: Tag;
+  // tag: Tag;
   value: string;
   // attributeValue: AttrVal;
 }
 
 export interface Attr extends BaseNode {
   type: 'Attr';
-  tag: Tag;
+  // tag: Tag;
   parent: Tag;
   name: string;
   // these need to be fields of the Attr visitor key

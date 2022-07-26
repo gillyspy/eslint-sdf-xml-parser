@@ -1,4 +1,4 @@
-﻿import { ScopeManager } from 'eslint-scope';
+﻿import { ScopeManager, Scope } from 'eslint-scope';
 
 import { ESLintXmlParseResult, XmlSyntaxTree } from '../types';
 import SdfParser from './Parser';
@@ -25,7 +25,7 @@ export const parseForESLint = (code: string, options): ESLintXmlParseResult => {
     comments: [],
     tokens,
     root,
-    // loc: root.loc, // can get the location programmatically later
+    loc: root.loc, // can get the location programmatically later
     range: root.range
     // value: code.substr(root.range[0], root.range[1] - root.range[0])
   };
@@ -33,12 +33,17 @@ export const parseForESLint = (code: string, options): ESLintXmlParseResult => {
   // Can't augment the type declarations to include constructors, so we're
   // stuck with ignoring these two instantiations
 
-  const scopeManager: ScopeManager = new ScopeManager();
+  /* eslint-disable @typescript-eslint/ban-ts-comment, no-new */
+  // @ts-ignore
+  const scopeManager: ScopeManager = new ScopeManager({});
+  // @ts-ignore
+  new Scope(scopeManager, 'module', null, syntaxTree, false);
+  /* eslint-enable @typescript-eslint/ban-ts-comment */
 
   const result: ESLintXmlParseResult = {
     ast: syntaxTree,
     visitorKeys,
-    scopeManager: null,
+    scopeManager,
     services: {}
   };
 
@@ -46,7 +51,7 @@ export const parseForESLint = (code: string, options): ESLintXmlParseResult => {
 };
 
 /**
- * @function
+ * @function Required function for a parser
  * @param {string} code
  * @param {object} options
  * @example //

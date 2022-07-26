@@ -23,8 +23,6 @@ tramp
 
 # exclude
 dist/*
-rules
-tests/print-node.test.js
 devnotes.md
 
 # but include this empty file so the dir gets created
