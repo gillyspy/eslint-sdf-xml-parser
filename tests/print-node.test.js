@@ -18,25 +18,52 @@ describe('print-node', () => {
     invalid: [
       {
         code,
-        options: ['Tag[tagName="entityForm"][scriptid!="custform123"]'],
-        output: code,
+        options: [
+          {
+            selector: 'Tag[tagName="entityForm"][scriptid!="custform123"]',
+            force: false
+          }
+        ],
         errors: [
           {
             line: 1,
             column: 2,
-            messageId: 'youAreMakingMe'
+            messageId: 'YouSelected'
           }
         ]
       },
       {
         code,
-        options: ['Tag[$scriptid] > Attr > AttrName[value="scriptid"]'],
-        output: ';lkjlk;j',
+        options: [
+          {
+            selector: 'Tag[$scriptid] > Attr > AttrName[value="scriptid"]',
+            force: false
+          }
+        ],
+        output: '',
         errors: [
           {
             line: 0,
             column: 2,
-            messageId: 'youAreMakingMe'
+            messageId: 'YouSelected'
+          }
+        ]
+      },
+      // this will remove the attribute
+      {
+        code,
+        options: [
+          {
+            selector: 'Tag[$scriptid] > Attr[name="scriptid"] ',
+            force: true
+          }
+        ],
+        output: '',
+        errors: [
+          {
+            line: 0,
+            column: 2,
+            messageId: 'YouSelected'
           }
         ]
       }

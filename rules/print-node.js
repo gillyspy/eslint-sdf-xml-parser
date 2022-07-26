@@ -4,7 +4,7 @@ require('eslint');
  */
 
 /**
- * @description Constructs a rule that can demonstrate using selectors.
+ * @description Constructs a rule that can demonstrate using selectors to suggest action.
  * @param {function} report
  * @param {string} selector
  * @returns {function(node) : void}
@@ -28,6 +28,28 @@ const makePrinter = (report, selector) => (node) =>
         fix: (fixer) => fixer.remove(node)
       }
     ]
+  });
+
+/**
+ * @description Constructs a rule that can demonstrate using selectors to force action.
+ * @param {function} report
+ * @param {string} selector
+ * @returns {function(node) : void}
+ */
+const makeForcer = (report, selector) => (node) =>
+  report({
+    node,
+    messageId: 'RemoveThis',
+    data: {
+      type: node.type,
+      selector
+    },
+    /**
+     * @description Removes the node.
+     * @param {object} fixer Function containing fixer methods.
+     * @returns {void}
+     */
+    fix: (fixer) => fixer.remove(node)
   });
 
 module.exports = {
@@ -54,10 +76,16 @@ module.exports = {
    * @param {Function} context.report Built-in reporter.
    * @returns {Object<string,function>}
    */
-  create({ id, options, report }) {
+  create({ id, options, report, getSourceCode }) {
     const visitorFns = {};
 
-    options.forEach((selector) => Object.assign(visitorFns, { [selector]: makePrinter(report, selector) }));
+    const SourceCode = getSourceCode();
+
+    options.forEach(({ selector, force }) => {
+      const newFn = force ? makeForcer(report, selector) : makePrinter(report, selector);
+
+      Object.assign(visitorFns, { [selector]: newFn });
+    });
 
     return visitorFns;
   }
