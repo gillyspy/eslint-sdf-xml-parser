@@ -50,6 +50,8 @@ export default class SdfParser {
 
   private attrStack: Attr[];
 
+  #tab: string;
+
   #parserOptions: SdfParserOptions;
 
   constructor({ code, parserOptions = {} }: { code: string; parserOptions?: SdfParserOptions }) {
@@ -68,6 +70,8 @@ export default class SdfParser {
     this.tagStack = [];
     this.attrStack = [];
     this.commentStack = [];
+
+    this.tab = typeof this.requestedOptions.tab;
 
     this.visitorKeys = {
       'Program': ['root'],
@@ -90,6 +94,48 @@ export default class SdfParser {
         [key]: parserOptions[key]
       };
     }, Object.fromEntries(Object.entries(SdfParser.defaultOptions).filter(([key]) => key !== 'tab')));
+  }
+
+  /**
+   * @description Sets the tab to a clear internal value based on various external input values.
+   * @param {string|number|undefined } tab Various expressions of tab.
+   * @returns {void}
+   */
+  set tab(tab: string | number | undefined) {
+    switch (tab) {
+      case '4':
+      case 4:
+      case 'four':
+        this.#tab = '    ';
+        break;
+      case 'tab':
+      case '\t':
+        this.#tab = '\t';
+        break;
+      case '2':
+      case 2:
+      case 'two':
+        this.#tab = '  ';
+        break;
+      default:
+        this.#tab = SdfParser.defaultOptions.tab;
+        break;
+    }
+  }
+
+  /**
+   * @returns {string} Representing the nature of the tab.
+   */
+  get tab() {
+    switch (this.#tab) {
+      case '    ':
+        return '4';
+      case '\t':
+        return 'tab';
+      default:
+      case '  ':
+        return '2';
+    }
   }
 
   /**
@@ -171,7 +217,8 @@ export default class SdfParser {
    * @returns {XmlPosition}
    */
   getLineAndColumn(index: number, zeroBased = true): XmlPosition {
-    const zeroOffset = zeroBased ? -1 : 0;
+    const zeroOffset: number = zeroBased ? -1 : 0;
+    const tab: number = Number(this.tab) || 2;
     const { lineBreakIndices, tabIndices } = this;
     let lineNumber = 0;
 
@@ -188,7 +235,7 @@ export default class SdfParser {
       if (tabIndices[tabNumber] <= lineBreakIndices[lineNumber - 1]) {
         // keep going;
       } else if (tabIndices[tabNumber] < index) {
-        column += 4;
+        column += tab;
       } else {
         break;
       }
