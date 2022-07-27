@@ -94,10 +94,14 @@ describe('print-node', () => {
         ]
       },
       {
-        code,
+        code: `<customrecordtype scriptid="customrecord_dc_wo">
+  <!-- hi -->
+  <name>work order</name>
+  <label/>
+</customrecordtype>`,
         options: [
           {
-            selector: 'Tag[tagName="lable"] > Tag.parent  ',
+            selector: 'Tag[tagName="label"] > Tag.parent  ',
             force: true
           }
         ],
