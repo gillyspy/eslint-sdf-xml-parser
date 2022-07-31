@@ -157,7 +157,7 @@ export interface ParserOptions {
 
 export interface SdfParserOptions extends ParserOptions {
   attrProperties?: boolean;
-  tab?: string;
+  tab?: string | number;
   commentNodes?: boolean;
 }
 

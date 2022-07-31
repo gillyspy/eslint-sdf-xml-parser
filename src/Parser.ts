@@ -5,18 +5,9 @@ import {
   Parser, ParserOptions, Tokenizer
 }                     from 'htmlparser2';
 import { Callbacks } from 'htmlparser2/lib/Tokenizer';
+// eslint-disable-next-line prettier/prettier
 import {
-  Attr,
-  AttrName,
-  AttrVal,
-  ESLintXmlParserToken,
-  SdfParserOptions,
-  SdfQuoteType,
-  Tag,
-  XmlPosition,
-  XmlSourceLocation,
-  XmlTokenType,
-  XmlComment as Comment
+  Attr, ESLintXmlParserToken, SdfParserOptions, SdfQuoteType, Tag, XmlPosition, XmlSourceLocation, XmlTokenType, XmlComment as Comment 
 } from '../types';
 
 export default class SdfParser {
@@ -106,6 +97,7 @@ export default class SdfParser {
       case '4':
       case 4:
       case 'four':
+      case '    ':
         this.#tab = '    ';
         break;
       case 'tab':
@@ -115,10 +107,11 @@ export default class SdfParser {
       case '2':
       case 2:
       case 'two':
+      case '  ':
         this.#tab = '  ';
         break;
       default:
-        this.#tab = SdfParser.defaultOptions.tab;
+        this.#tab = String(SdfParser.defaultOptions.tab);
         break;
     }
   }
@@ -132,8 +125,8 @@ export default class SdfParser {
         return '4';
       case '\t':
         return 'tab';
-      default:
       case '  ':
+      default:
         return '2';
     }
   }
@@ -243,7 +236,7 @@ export default class SdfParser {
 
     return {
       line: lineNumber,
-      column
+      column: Math.max(0, column)
     };
   }
 
@@ -289,60 +282,64 @@ export default class SdfParser {
        * @returns {void}
        */
       onopentagname: (tagName: string): void => {
-        // console.log('onopentagname handler edition');
+        try {
+          // console.log('onopentagname handler edition');
 
-        // create a new tag.
-        const parent: Tag = this.root === null ? null : [...tagStack].pop();
+          // create a new tag.
+          const parent: Tag = this.root === null ? null : [...tagStack].pop();
 
-        currentSdfParser
-          .getMatchFromCollection({
-            /** @returns {boolean} */
-            test: ({ type, value }) => type === 'XmlTagName' && value === tagName,
-            collection: currentSdfParser.#tokens,
-            removeIt: true
-          })
-          .forEach((nameToken) => {
-            const [start] = nameToken.range;
-            // add this one as a temporary tag
-            const tag = {
-              attr: [],
-              children: [],
-              comments: [],
-              canHoldText: null,
-              innerHTML: null,
-              isClosed: null,
-              range: [start - 1, null],
-              type: 'Tag',
-              tagName,
-              parent: null,
-              // parent,
-              value: null
-            } as Tag;
+          currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: ({ type, value }) => type === 'XmlTagName' && value === tagName,
+              collection: currentSdfParser.#tokens,
+              removeIt: true
+            })
+            .forEach((nameToken) => {
+              const [start] = nameToken.range;
+              // add this one as a temporary tag
+              const tag = {
+                attr: [],
+                children: [],
+                comments: [],
+                canHoldText: null,
+                innerHTML: null,
+                isClosed: null,
+                range: [start - 1, null],
+                type: 'Tag',
+                tagName,
+                parent: null,
+                // parent,
+                value: null
+              } as Tag;
 
-            if (currentSdfParser.root === null) {
-              currentSdfParser.root = tag;
+              if (currentSdfParser.root === null) {
+                currentSdfParser.root = tag;
 
-              tag.leadingComments = [];
-              tag.trailingComments = [];
+                tag.leadingComments = [];
+                tag.trailingComments = [];
 
-              // add any leading comments are comments that are already logged buuut had nothing to attach to
-              currentSdfParser
-                .getMatchFromCollection({
-                  /** @returns {boolean} */
-                  test: () => true,
-                  removeIt: true,
-                  collection: currentSdfParser.commentStack
-                })
-                .forEach((comment) => {
-                  currentSdfParser.root.leadingComments.push(comment);
-                });
-            }
+                // add any leading comments are comments that are already logged buuut had nothing to attach to
+                currentSdfParser
+                  .getMatchFromCollection({
+                    /** @returns {boolean} */
+                    test: () => true,
+                    removeIt: true,
+                    collection: currentSdfParser.commentStack
+                  })
+                  .forEach((comment) => {
+                    currentSdfParser.root.leadingComments.push(comment);
+                  });
+              }
 
-            tagStack.push(tag);
+              tagStack.push(tag);
 
-            // associate parent to children if relevant
-            parent?.children?.push(tag);
-          });
+              // associate parent to children if relevant
+              parent?.children?.push(tag);
+            });
+        } catch (e) {
+          throw new Error(`Error handling onopentagname: ${tagName}`);
+        }
       },
 
       /**
@@ -355,66 +352,81 @@ export default class SdfParser {
        * @returns {void}
        */
       onattribute: (name: string, value: string, quote: '"' | "'" | '' | undefined): void => {
-        // console.log('onattribute');
-        const quoteLength = quote?.length || 0;
+        try {
+          // console.log('onattribute');
+          const quoteLength = quote?.length || 0;
 
-        // obtain temp tag without removing it from temporary status
-        const tag = tagStack[tagStack.length - 1] || null;
+          // obtain temp tag without removing it from temporary status
+          const tag = tagStack[tagStack.length - 1] || null;
 
-        const indicesToSlice = [];
-        // absorb temp tokens that have the same name
-        const { attrName, attrValue } = [...currentSdfParser.#tokens]
-          //
-          .reduce(
-            (acc, { type, range, value: v }, idxToSlice): { attrName: AttrName; attrValue: AttrVal } => {
-              const [start, end] = range;
-              if (type === 'XmlAttrName' && v === name) {
-                // remove from the temp array #tokens
-                indicesToSlice.unshift(idxToSlice);
-                return { ...acc, attrName: { type: 'AttrName', value: v, range, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
-              }
+          // absorb temp tokens that have the same name
+          const attrName = currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: ({ type, value: v }) => type === 'XmlAttrName' && v === name,
+              collection: currentSdfParser.#tokens,
+              removeIt: true
+            })
+            .reduce(
+              (acc, { range: [start, end], ...rest }) => ({
+                ...rest,
+                range: [start, end],
+                loc: currentSdfParser.getLoc({ start, end }),
+                type: 'AttrName',
+                parent: null
+              }),
+              null
+            );
 
-              if (type === 'XmlAttrValue' && v === value) {
-                // remove from the temp array #tokens
-                indicesToSlice.unshift(idxToSlice);
-                return { ...acc, attrValue: { type: 'AttrVal', value: v, range, quote, parent: null, loc: currentSdfParser.getLoc({ start, end }) } };
-              }
+          const attrValue = currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: ({ type, value: v }) => type === 'XmlAttrValue' && v === value,
+              collection: currentSdfParser.#tokens,
+              removeIt: true
+            })
+            .reduce(
+              (acc, { range: [start, end], ...rest }) => ({
+                ...rest,
+                range: [start, end],
+                loc: currentSdfParser.getLoc({ start, end }),
+                type: 'AttrVal',
+                quote,
+                parent: null
+              }),
+              null
+            );
 
-              return acc;
-            },
-            { attrName: null, attrValue: null }
-          );
+          [
+            {
+              comments: [],
+              attrName,
+              attrValue,
+              type: 'Attr',
+              parent: tag,
+              name,
+              range: [attrName.range[0], attrValue.range[1] + quoteLength]
+            } as Attr
+          ].forEach((newAttribute) => {
+            // 📌 put a pin in it
+            attrStack.push(newAttribute);
+            SdfParser.addAttributesAs$Props(newAttribute, { [name]: value });
 
-        // 🧹 clean up the #tokens
-        indicesToSlice.sort((a, b) => b - a).forEach((idxToSlice) => currentSdfParser.#tokens.splice(idxToSlice, 1));
+            const [start, end] = newAttribute.range;
+            newAttribute.loc = currentSdfParser.getLoc({ start, end });
 
-        [
-          {
-            comments: [],
-            attrName,
-            attrValue,
-            type: 'Attr',
-            parent: tag,
-            name,
-            range: [attrName.range[0], attrValue.range[1] + quoteLength]
-          } as Attr
-        ].forEach((newAttribute) => {
-          // 📌 put a pin in it
-          attrStack.push(newAttribute);
-          SdfParser.addAttributesAs$Props(newAttribute, { [name]: value });
+            newAttribute.attrName.parent = newAttribute;
 
-          const [start, end] = newAttribute.range;
-          newAttribute.loc = currentSdfParser.getLoc({ start, end });
+            newAttribute.attrValue.parent = newAttribute;
 
-          newAttribute.attrName.parent = newAttribute;
+            // attach to the tag
+            tag?.attr.push(newAttribute);
 
-          newAttribute.attrValue.parent = newAttribute;
-
-          // attach to the tag
-          tag?.attr.push(newAttribute);
-
-          // update tag.attr[] arbitrary properties to include this attribute will happen in `onopentag`
-        });
+            // update tag.attr[] arbitrary properties to include this attribute will happen in `onopentag`
+          });
+        } catch (e) {
+          throw new Error(`Error handling onattribute: name:${name} value:${value} quote:${quote}, ${e.stack}`);
+        }
       },
 
       /**
@@ -441,12 +453,16 @@ export default class SdfParser {
           [s: string]: string;
         }
       ): void => {
-        // console.log('opentag');
-        // get latest element from stack without removing it
-        const newElement = tagStack[tagStack.length - 1];
+        try {
+          // console.log('opentag');
+          // get latest element from stack without removing it
+          const newElement = tagStack[tagStack.length - 1];
 
-        // add attribs as properties -- it makes using selectors easier
-        SdfParser.addAttributesAs$Props(newElement, attributes);
+          // add attribs as properties -- it makes using selectors easier
+          SdfParser.addAttributesAs$Props(newElement, attributes);
+        } catch (e) {
+          throw new Error(`Error handling onopentag: tagName:${tagName}`);
+        }
       },
 
       /**
@@ -460,27 +476,31 @@ export default class SdfParser {
        * @returns {void}
        */
       onclosetag: (tagName: string): void => {
-        // console.log('onclosetag handler edition');
-        const currentEl = tagStack.pop();
+        try {
+          // console.log('onclosetag handler edition');
+          const currentEl = tagStack.pop();
 
-        // remove the related temp #token
-        currentSdfParser.getMatchFromCollection({
-          /** @returns {boolean} */
-          test: ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
-          collection: currentSdfParser.#tokens,
-          removeIt: true
-        });
+          // remove the related temp #token
+          currentSdfParser.getMatchFromCollection({
+            /** @returns {boolean} */
+            test: ({ type, value }: Partial<ESLintXmlParserToken>) => type === 'XmlTagName' && tagName === value,
+            collection: currentSdfParser.#tokens,
+            removeIt: true
+          });
 
-        const endTagLength: number = currentEl.isClosed ? 2 : 1;
+          const endTagLength: number = currentEl.isClosed ? 2 : 1;
 
-        if (currentEl.tagName !== tagName) throw new Error('open tag does not match currentElement');
-        const end: number = currentSdfParser.parser.endIndex + endTagLength;
-        currentEl.range[1] = end;
-        currentEl.loc = currentSdfParser.getLoc({ start: currentEl.range[0], end });
-        currentEl.value = currentSdfParser.code.slice(...currentEl.range);
-        currentEl.innerHTML = SdfParser.extractInner({ raw: currentEl.value });
+          if (currentEl.tagName !== tagName) throw new Error('open tag does not match currentElement');
+          const end: number = currentSdfParser.parser.endIndex + endTagLength;
+          currentEl.range[1] = end;
+          currentEl.loc = currentSdfParser.getLoc({ start: currentEl.range[0], end });
+          currentEl.value = currentSdfParser.code.slice(...currentEl.range);
+          currentEl.innerHTML = SdfParser.extractInner({ raw: currentEl.value });
 
-        if (currentEl.isClosed !== true && typeof currentEl.innerHTML !== 'string') throw new TypeError('Something wrong with Parsing');
+          if (currentEl.isClosed !== true && typeof currentEl.innerHTML !== 'string') throw new TypeError('Something wrong with Parsing');
+        } catch (e) {
+          throw new Error(`Error handling onclosetag: tagName:${tagName}`);
+        }
       },
 
       /**
@@ -490,30 +510,34 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext: (text: string): void => {
-        // console.log('ontext', { text });
+        try {
+          // console.log('ontext', { text });
 
-        const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlText' });
+          const [{ start, end }] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlText' });
 
-        let parent = null;
+          let parent = null;
 
-        if (!currentSdfParser.tagStack.length) return;
+          if (!currentSdfParser.tagStack.length) return;
 
-        [parent] = currentSdfParser.getMatchFromCollection({
-          /** @returns {boolean} */
-          test: ({ children }) => Array.isArray(children),
-          collection: currentSdfParser.tagStack,
-          removeIt: false
-        }) as Tag[];
+          [parent] = currentSdfParser.getMatchFromCollection({
+            /** @returns {boolean} */
+            test: ({ children }) => Array.isArray(children),
+            collection: currentSdfParser.tagStack,
+            removeIt: false
+          }) as Tag[];
 
-        if (!parent) return;
+          if (!parent) return;
 
-        parent.children.push({
-          type: 'Text',
-          value: text,
-          range: [start, end],
-          loc: currentSdfParser.getLoc({ start, end }),
-          parent
-        });
+          parent.children.push({
+            type: 'Text',
+            value: text,
+            range: [start, end],
+            loc: currentSdfParser.getLoc({ start, end }),
+            parent
+          });
+        } catch (e) {
+          throw new Error(`Error handling ontext: tagName:${text}`);
+        }
       },
 
       /**
@@ -524,30 +548,34 @@ export default class SdfParser {
        */
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       oncomment: (comment: string): void => {
-        // assume no parent available
-        let parent = null;
+        try {
+          // assume no parent available
+          let parent = null;
 
-        // look for a parent
-        if (currentSdfParser.tagStack.length) {
-          [parent] = currentSdfParser.getMatchFromCollection({
-            /** @returns {boolean} */
-            test: ({ comments }) => Array.isArray(comments),
-            collection: currentSdfParser.tagStack,
-            removeIt: false
-          }) as Tag[];
+          // look for a parent
+          if (currentSdfParser.tagStack.length) {
+            [parent] = currentSdfParser.getMatchFromCollection({
+              /** @returns {boolean} */
+              test: ({ comments }) => Array.isArray(comments),
+              collection: currentSdfParser.tagStack,
+              removeIt: false
+            }) as Tag[];
+          }
+
+          // look for a comment on the stack to associate to the parent
+          currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: () => parent?.type === 'Tag',
+              removeIt: true,
+              collection: currentSdfParser.commentStack
+            })
+            .forEach((orphan: Comment) => {
+              parent.comments.push(orphan);
+            });
+        } catch (e) {
+          throw new Error(`Error handling oncomment: ${comment}`);
         }
-
-        // look for a comment on the stack to associate to the parent
-        currentSdfParser
-          .getMatchFromCollection({
-            /** @returns {boolean} */
-            test: () => parent?.type === 'Tag',
-            removeIt: true,
-            collection: currentSdfParser.commentStack
-          })
-          .forEach((orphan: Comment) => {
-            parent.comments.push(orphan);
-          });
       }
     };
 
@@ -626,6 +654,7 @@ export default class SdfParser {
         removeIt: false
       }).map(({ range: [a, b] }) => ({ start: a, end: b }));
     } catch (e) {
+      throw new Error(`error in getting previous token of type:${requestedType}`);
       // console.log({ e });
     }
     return [];
@@ -670,46 +699,56 @@ export default class SdfParser {
        * @returns {void}
        */
       onattribdata(start: number, end: number): void {
-        const loc = currentSdfParser.getLoc({ start, end });
-        const [matchingAttrRange] = currentSdfParser.getPreviousTokenOfType({ type: 'XmlAttrName' });
+        try {
+          const loc = currentSdfParser.getLoc({ start, end });
+          const [matchingAttrRange] = currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: ({ type }: { type: XmlTokenType }): boolean => type === 'XmlAttrName',
+              removeIt: false,
+              collection: currentSdfParser.#tokens
+            })
+            .map(({ range: [s, e] }) => ({ start: s, end: e }));
 
-        // process "=" token
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        [{ start: matchingAttrRange.end, end: matchingAttrRange.end + 1 }].forEach(({ start, end }) => {
-          currentSdfParser.addToken({
-            type: 'XmlAttrOperator',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
-          });
-        });
-
-        // if there is a gap of 2 then expression includes a quote -- so capture the quote token
-        if (matchingAttrRange.end && start >= matchingAttrRange.end + 2) {
+          // process "=" token
           // eslint-disable-next-line @typescript-eslint/no-shadow
-          [{ start: matchingAttrRange.end + 1, end: start }].forEach(({ start, end }) => {
+          [{ start: matchingAttrRange.end, end: matchingAttrRange.end + 1 }].forEach(({ start, end }) => {
             currentSdfParser.addToken({
-              type: 'XmlAttrQuote',
+              type: 'XmlAttrOperator',
               value: currentSdfParser.code.slice(start, end),
               range: [start, end],
               loc: currentSdfParser.getLoc({ start, end })
             });
           });
-        }
 
-        // finally push the value
-        [
-          {
-            type: 'XmlAttrValue',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc
+          // if there is a gap of 2 then expression includes a quote -- so capture the quote token
+          if (matchingAttrRange.end && start >= matchingAttrRange.end + 2) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            [{ start: matchingAttrRange.end + 1, end: start }].forEach(({ start, end }) => {
+              currentSdfParser.addToken({
+                type: 'XmlAttrQuote',
+                value: currentSdfParser.code.slice(start, end),
+                range: [start, end],
+                loc: currentSdfParser.getLoc({ start, end })
+              });
+            });
           }
-        ].forEach((xmlAttrValue: ESLintXmlParserToken) => {
-          currentSdfParser.#tokens.push(xmlAttrValue);
-          currentSdfParser.addToken(xmlAttrValue);
-        });
 
+          // finally push the value
+          [
+            {
+              type: 'XmlAttrValue',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc
+            }
+          ].forEach((xmlAttrValue: ESLintXmlParserToken) => {
+            currentSdfParser.#tokens.push(xmlAttrValue);
+            currentSdfParser.addToken(xmlAttrValue);
+          });
+        } catch (e) {
+          throw new Error(`error in tokenizer onattribdata:  start:${start}, end:${end}`);
+        }
         // console.log('onattribdata');
         return parserPrototypes.onattribdata(start, end);
       },
@@ -717,21 +756,24 @@ export default class SdfParser {
        * @returns {void}
        */
       onattribend(quote, end: number): void {
-        // console.log('onattribend');
-        if ([SdfParser.QuoteType.Unquoted, SdfParser.QuoteType.NoValue].includes(quote)) return;
+        try {
+          // console.log('onattribend');
+          if ([SdfParser.QuoteType.Unquoted, SdfParser.QuoteType.NoValue].includes(quote)) return;
 
-        // if there is a gap of 1 then it's a quote -- capture the quote token
+          // if there is a gap of 1 then it's a quote -- capture the quote token
 
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        [{ start: end, end: end + 1 }].forEach(({ start, end }) => {
-          currentSdfParser.addToken({
-            type: 'XmlAttrQuote',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
+          // eslint-disable-next-line @typescript-eslint/no-shadow
+          [{ start: end, end: end + 1 }].forEach(({ start, end }) => {
+            currentSdfParser.addToken({
+              type: 'XmlAttrQuote',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            });
           });
-        });
-
+        } catch (e) {
+          throw new Error(`error in tokenizer onattribend:  end:${end}`);
+        }
         parserPrototypes.onattribend(quote, end);
       },
 
@@ -746,37 +788,40 @@ export default class SdfParser {
        * @returns {void}
        */
       onclosetag(start: number, end: number): void {
-        const [newStart, newEnd] = [start - 2, end + 1];
+        try {
+          const [newStart, newEnd] = [start - 2, end + 1];
 
-        [currentSdfParser.tagStack[currentSdfParser.tagStack.length - 1]].filter(Boolean).forEach((tag) => {
-          tag.isClosed = false;
-        });
+          [currentSdfParser.tagStack[currentSdfParser.tagStack.length - 1]].filter(Boolean).forEach((tag) => {
+            tag.isClosed = false;
+          });
 
-        [
-          {
-            type: 'XmlTagBeginHard',
-            value: '</',
-            range: [newStart, start],
-            loc: currentSdfParser.getLoc({ start: newStart, end: start })
-          },
-          {
-            type: 'XmlTagName',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
-          },
-          {
-            type: 'XmlTagEndSoft',
-            value: '>',
-            range: [end, newEnd],
-            loc: currentSdfParser.getLoc({ start: end, end: newEnd })
-          }
-        ].forEach((token: ESLintXmlParserToken): void => {
-          currentSdfParser.addToken(token);
+          [
+            {
+              type: 'XmlTagBeginHard',
+              value: '</',
+              range: [newStart, start],
+              loc: currentSdfParser.getLoc({ start: newStart, end: start })
+            },
+            {
+              type: 'XmlTagName',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            },
+            {
+              type: 'XmlTagEndSoft',
+              value: '>',
+              range: [end, newEnd],
+              loc: currentSdfParser.getLoc({ start: end, end: newEnd })
+            }
+          ].forEach((token: ESLintXmlParserToken): void => {
+            currentSdfParser.addToken(token);
 
-          if (token.type === 'XmlTagName') currentSdfParser.#tokens.push(token);
-        });
-
+            if (token.type === 'XmlTagName') currentSdfParser.#tokens.push(token);
+          });
+        } catch (e) {
+          throw new Error(`error in tokenizer onclosetag:  start:${start}, end:${end}`);
+        }
         // console.log('onclosetag');
         return parserPrototypes.onclosetag(start, end);
       },
@@ -785,44 +830,48 @@ export default class SdfParser {
        * @returns {void}
        */
       oncomment(start: number, endCombo: number, endOffset: number): void {
-        const end = endCombo - endOffset;
+        try {
+          const end = endCombo - endOffset;
 
-        // comment begin
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        [{ start: start - 4, end: start }].forEach(({ start, end }) => {
-          currentSdfParser.tokens.push({
-            type: 'XmlCommentBegin',
-            value: '<!--',
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
+          // comment begin
+          // eslint-disable-next-line @typescript-eslint/no-shadow
+          [{ start: start - 4, end: start }].forEach(({ start, end }) => {
+            currentSdfParser.tokens.push({
+              type: 'XmlCommentBegin',
+              value: '<!--',
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            });
           });
-        });
 
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        [{ start: end, end: end + endOffset + 1 }].forEach(({ start, end }) => {
-          currentSdfParser.tokens.push({
-            type: 'XmlCommentEnd',
-            value: '>'.padStart(endOffset + 1, '-'),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
+          // eslint-disable-next-line @typescript-eslint/no-shadow
+          [{ start: end, end: end + endOffset + 1 }].forEach(({ start, end }) => {
+            currentSdfParser.tokens.push({
+              type: 'XmlCommentEnd',
+              value: '>'.padStart(endOffset + 1, '-'),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            });
           });
-        });
 
-        [
-          {
-            type: 'Line',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
-          } as Comment
-        ].forEach((newComment) => {
-          if (newComment.loc.start.line !== newComment.loc.end.line) newComment.type = 'Block';
-          currentSdfParser.comments.push(newComment);
-          currentSdfParser.commentStack.push(newComment);
+          [
+            {
+              type: 'Line',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            } as Comment
+          ].forEach((newComment) => {
+            if (newComment.loc.start.line !== newComment.loc.end.line) newComment.type = 'Block';
+            currentSdfParser.comments.push(newComment);
+            currentSdfParser.commentStack.push(newComment);
 
-          // any need to add it to temporary?
-          // currentSdfParser.#tokens.push(newText);
-        });
+            // any need to add it to temporary?
+            // currentSdfParser.#tokens.push(newText);
+          });
+        } catch (e) {
+          throw new Error(`error in tokenizer oncomment:  start:${start}, end:${endCombo}`);
+        }
 
         // console.log('oncomment');
         return parserPrototypes.oncomment(start, endCombo, endOffset);
@@ -841,32 +890,40 @@ export default class SdfParser {
        * @returns {void}
        */
       onend(): void {
-        // add any trailing comments to the root node
-        currentSdfParser
-          .getMatchFromCollection({
-            /** @returns {boolean} */
-            test: () => true,
-            removeIt: true,
-            collection: currentSdfParser.commentStack
-          })
-          .forEach((comment) => {
-            this.root?.trailingComments.push(comment);
-          });
+        try {
+          // add any trailing comments to the root node
+          currentSdfParser
+            .getMatchFromCollection({
+              /** @returns {boolean} */
+              test: () => true,
+              removeIt: true,
+              collection: currentSdfParser.commentStack
+            })
+            .forEach((comment) => {
+              this.root?.trailingComments.push(comment);
+            });
 
-        if (currentSdfParser.#tokens.length) throw new Error(`You still have ${currentSdfParser.#tokens.length} tokens to deal with`);
-
+          if (currentSdfParser.#tokens.length) throw new Error(`You still have ${currentSdfParser.#tokens.length} tokens to deal with`);
+        } catch (e) {
+          throw new Error(`error in tokenizer onend`);
+        }
         return parserPrototypes.onend();
       },
       /**
        * @returns {void}
        */
       onopentagend(end: number): void {
-        currentSdfParser.addToken({
-          type: 'XmlTagEndSoft',
-          value: '>',
-          range: [end, end + 1],
-          loc: currentSdfParser.getLoc({ start: end, end: end + 1 })
-        } as ESLintXmlParserToken);
+        try {
+          currentSdfParser.addToken({
+            type: 'XmlTagEndSoft',
+            value: '>',
+            range: [end, end + 1],
+            loc: currentSdfParser.getLoc({ start: end, end: end + 1 })
+          } as ESLintXmlParserToken);
+        } catch (e) {
+          throw new Error(`error in tokenizer onopentagend: end:${end}`);
+        }
+
         // console.log('onopentagend');
         return parserPrototypes.onopentagend(end);
       },
@@ -874,26 +931,30 @@ export default class SdfParser {
        * @returns {void}
        */
       onopentagname(start: number, end: number): void {
-        // add a < to the tokens
-        currentSdfParser.addToken({
-          type: 'XmlTagBeginSoft',
-          value: '<',
-          range: [start - 1, start],
-          loc: currentSdfParser.getLoc({ start: start - 1, end: start })
-        } as ESLintXmlParserToken);
+        try {
+          // add a < to the tokens
+          currentSdfParser.addToken({
+            type: 'XmlTagBeginSoft',
+            value: '<',
+            range: [start - 1, start],
+            loc: currentSdfParser.getLoc({ start: start - 1, end: start })
+          } as ESLintXmlParserToken);
 
-        // push the tag
-        [
-          {
-            type: 'XmlTagName',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
-          } as ESLintXmlParserToken
-        ].forEach((tagToken) => {
-          currentSdfParser.addToken(tagToken);
-          currentSdfParser.#tokens.push(tagToken);
-        });
+          // push the tag
+          [
+            {
+              type: 'XmlTagName',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            } as ESLintXmlParserToken
+          ].forEach((tagToken) => {
+            currentSdfParser.addToken(tagToken);
+            currentSdfParser.#tokens.push(tagToken);
+          });
+        } catch (e) {
+          throw new Error(`error in tokenizer onattribdata:  start:${start}, end:${end}`);
+        }
 
         // console.log('onopentagname');
         return parserPrototypes.onopentagname(start, end);
@@ -912,17 +973,20 @@ export default class SdfParser {
        * @returns {void}
        */
       onselfclosingtag(end: number): void {
-        [currentSdfParser.tagStack[currentSdfParser.tagStack.length - 1]].filter(Boolean).forEach((tag) => {
-          tag.isClosed = true;
-        });
-        // add a close token
-        currentSdfParser.addToken({
-          type: 'XmlTagEndHard',
-          value: '/>',
-          range: [end - 1, end + 1],
-          loc: currentSdfParser.getLoc({ start: end - 1, end: end + 1 })
-        } as ESLintXmlParserToken);
-
+        try {
+          [currentSdfParser.tagStack[currentSdfParser.tagStack.length - 1]].filter(Boolean).forEach((tag) => {
+            tag.isClosed = true;
+          });
+          // add a close token
+          currentSdfParser.addToken({
+            type: 'XmlTagEndHard',
+            value: '/>',
+            range: [end - 1, end + 1],
+            loc: currentSdfParser.getLoc({ start: end - 1, end: end + 1 })
+          } as ESLintXmlParserToken);
+        } catch (e) {
+          throw new Error(`error in tokenizer onselfclosingtag:   end:${end}`);
+        }
         // console.log('onselfclosingtag');
         return parserPrototypes.onselfclosingtag(end);
       },
@@ -930,22 +994,26 @@ export default class SdfParser {
        * @returns {void}
        */
       ontext(start: number, end: number): void {
-        [
-          {
-            type: 'XmlText',
-            value: currentSdfParser.code.slice(start, end),
-            range: [start, end],
-            loc: currentSdfParser.getLoc({ start, end })
-          } as ESLintXmlParserToken
-        ].forEach((newText) => {
-          currentSdfParser.addToken(newText);
+        try {
+          [
+            {
+              type: 'XmlText',
+              value: currentSdfParser.code.slice(start, end),
+              range: [start, end],
+              loc: currentSdfParser.getLoc({ start, end })
+            } as ESLintXmlParserToken
+          ].forEach((newText) => {
+            currentSdfParser.addToken(newText);
 
-          // any need to add it to temporary?
-          // currentSdfParser.#tokens.push(newText);
+            // any need to add it to temporary?
+            // currentSdfParser.#tokens.push(newText);
 
-          // console.log('ontext', currentSdfParser.code);
-          return parserPrototypes.ontext(start, end);
-        });
+            // console.log('ontext', currentSdfParser.code);
+            return parserPrototypes.ontext(start, end);
+          });
+        } catch (e) {
+          throw new Error(`error in tokenizer ontext:  start:${start}, end:${end}`);
+        }
       },
       /**
        * @returns {void}
@@ -1016,7 +1084,7 @@ export default class SdfParser {
    * @returns {string|null}
    * @example
    */
-  static extractInner = ({ raw }): string | null => raw.match(SdfParser.contentsOfTagRgx)?.groups?.content || null;
+  static extractInner = ({ raw }): string | null => raw.match(SdfParser.contentsOfTagRgx)?.groups?.content;
 
   /**
    * @description iterates in reverse over an Array, running a test against each item and removing the first entry that
