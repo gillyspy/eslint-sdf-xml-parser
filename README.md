@@ -31,7 +31,7 @@ $ npm install --save-dev eslint-sdf-xml-parser
 
 ```json
 {
-    "parser": "eslint-sdf-xml-parser"
+    "parser": "@suitegeezus/eslint-sdf-xml-parser"
 }
 ```
 
@@ -84,6 +84,28 @@ There is a sample rule in the git repository.  Note:
 - Eslint's rule of no overlap between tokens and comments is adhered to.  Note: that this means the AST nodes might 
   appear to be incomplete BUT you simply use the getSourceCode methods above as EsLint docs suggest.
 
+## ESLint Rule Suppression
+Because comments are supported as eslint-native comments you can do something like: 
+
+```xml
+<sometag></sometag>
+ <!-- eslint-disable-next line @suitegeezus/sdfobjects/remove-empty-lines-between-tags --> 
+
+<someothertag></someothertag>
+ ```
+
+or if you create a multi-line component then you can suppress rules over for the entire block
+
+```js
+ <!-- 
+ eslint-disable @suitegeezus/sdfobjects/remove-empty-lines-between-tags 
+ --> 
+<whenever></whenever>
+<sometag></sometag>
+
+<someothertag></someothertag>
+```
+
 ## AST Info
 
 Xml files are parsed into an AST, which can be traversed, examined, and linted with the visitor pattern like any other 
@@ -95,21 +117,25 @@ ESLint source.  The Xml AST that is produced has the following types of nodes an
   - parent: Tag
   - attributes: Attr[]
   - children: ( Tag | Text )[] (optionally `CommentNode` per option )
+  - $scriptid: string - (when relevant attributes are aliased/prefaced with `$` like this)
+  - isClosed : boolean
+  - innerHTML : string (like value but without the tags)
+  - value: string
 
 - Attr
   - parent: Tag
   - attrName: AttrName
   - attrValue: AttrVal
-  - name
+  - name: string
 
 - AttrName
   - parent: Attr
-  - value
+  - value: string
 
 - AttrVal
   - parent: Attr
-  - value
-  - quote
+  - value: string
+  - quote: string
 
 - Text
   - parent: Tag

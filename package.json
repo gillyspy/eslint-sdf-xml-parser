@@ -50,6 +50,7 @@
   },
   "devDependencies": {
     "@suitegeezus/eslint-config": "^0.1.0-beta0.3",
+    "@suitegeezus/spec-maker": "^0.1.1",
     "@types/domhandler": "^2.4.2",
     "@types/eslint": "latest",
     "@types/eslint-scope": "latest",
