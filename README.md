@@ -31,7 +31,7 @@ $ npm install --save-dev eslint-sdf-xml-parser
 
 ```json
 {
-    "parser": "@suitegeezus/eslint-sdf-xml-parser"
+  "parser": "@suitegeezus/eslint-sdf-xml-parser"
 }
 ```
 
